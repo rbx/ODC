@@ -675,15 +675,20 @@ bool Controller::submitDDSAgents(const CommonParams& common, Session& session, E
 
     session.mDDSSession.sendRequest<SSubmitRequest>(requestPtr);
 
-    mutex mtx;
-    unique_lock<mutex> lock(mtx);
-    cv_status waitStatus = cv.wait_for(lock, requestTimeout(common));
+    try {
+        mutex mtx;
+        unique_lock<mutex> lock(mtx);
+        cv_status waitStatus = cv.wait_for(lock, requestTimeout(common));
 
-    if (waitStatus == cv_status::timeout) {
+        if (waitStatus == cv_status::timeout) {
+            success = false;
+            fillAndLogError(common, error, ErrorCode::RequestTimeout, "Timed out waiting for agent submission");
+        } else {
+            // OLOG(info, common) << "Agent submission done successfully";
+        }
+    } catch (exception& e) {
+        fillAndLogError(common, error, ErrorCode::RequestTimeout, toString("Timeout during agent submission: ", e.what()));
         success = false;
-        fillAndLogError(common, error, ErrorCode::RequestTimeout, "Timed out waiting for agent submission");
-    } else {
-        // OLOG(info, common) << "Agent submission done successfully";
     }
     return success;
 }
@@ -764,27 +769,32 @@ bool Controller::activateDDSTopology(const CommonParams& common, Session& sessio
 
     session.mDDSSession.sendRequest<dds::tools_api::STopologyRequest>(requestPtr);
 
-    unique_lock<mutex> lock(mtx);
-    cv_status waitStatus = cv.wait_for(lock, requestTimeout(common));
+    try {
+        unique_lock<mutex> lock(mtx);
+        cv_status waitStatus = cv.wait_for(lock, requestTimeout(common));
 
-    if (waitStatus == cv_status::timeout) {
+        if (waitStatus == cv_status::timeout) {
+            success = false;
+            fillAndLogError(common, error, ErrorCode::RequestTimeout, "Timed out waiting for topology activation");
+            OLOG(error, common) << error;
+        } else {
+            // try {
+            //     if (!session.mCollections.empty()) {
+            //         OLOG(info, common) << "Collections:";
+            //         for (const auto& [id, colInfo] : session.mCollections) {
+            //             OLOG(info, common) << "  " << colInfo;
+            //             for (const auto& [colId, agentId] : colInfo.mRuntimeCollectionAgents) {
+            //                 OLOG(info, common) << "    runtime collection: id: " << colId << ", agent id: " << agentId;
+            //             }
+            //         }
+            //     }
+            // } catch (const exception& e) {
+            //     fillAndLogError(common, error, ErrorCode::DDSActivateTopologyFailed, toString("Failed getting slot info: ", e.what()));
+            // }
+        }
+    } catch (exception& e) {
+        fillAndLogError(common, error, ErrorCode::RequestTimeout, toString("Timeout during topology activation: ", e.what()));
         success = false;
-        fillAndLogError(common, error, ErrorCode::RequestTimeout, "Timed out waiting for topology activation");
-        OLOG(error, common) << error;
-    } else {
-        // try {
-        //     if (!session.mCollections.empty()) {
-        //         OLOG(info, common) << "Collections:";
-        //         for (const auto& [id, colInfo] : session.mCollections) {
-        //             OLOG(info, common) << "  " << colInfo;
-        //             for (const auto& [colId, agentId] : colInfo.mRuntimeCollectionAgents) {
-        //                 OLOG(info, common) << "    runtime collection: id: " << colId << ", agent id: " << agentId;
-        //             }
-        //         }
-        //     }
-        // } catch (const exception& e) {
-        //     fillAndLogError(common, error, ErrorCode::DDSActivateTopologyFailed, toString("Failed getting slot info: ", e.what()));
-        // }
     }
 
     // session.debug();
