@@ -469,11 +469,11 @@ RequestResult Controller::execTerminate(const CommonParams& common, const Device
     return createRequestResult(common, *(partition.mSession), error, "Terminate done", std::move(topologyState), {});
 }
 
-StatusRequestResult Controller::execStatus(const StatusParams& params)
+RequestResult Controller::execStatus(const StatusParams& params)
 {
     lock_guard<mutex> lock(mPartitionMtx);
 
-    StatusRequestResult result;
+    RequestResult result;
     for (const auto& p : mPartitions) {
         const auto& session = p.second.mSession;
         const auto& topology = p.second.mTopology;
