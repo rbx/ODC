@@ -282,12 +282,6 @@ struct StatusParams
     }
 };
 
-struct ZoneConfig
-{
-    std::string cfgPath;
-    std::string envPath;
-};
-
 } // namespace odc::core
 
 #endif /* defined(ODC_CORE_PARAMS) */

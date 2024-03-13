@@ -394,6 +394,12 @@ struct ZoneGroup
     std::string agentGroup;
 };
 
+struct ZoneConfig
+{
+    std::string cfgPath;
+    std::string envPath;
+};
+
 } // namespace odc::core
 
 #endif /* ODC_TOPOLOGYDEFS */
