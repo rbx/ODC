@@ -33,6 +33,7 @@ add_library(${target} STATIC
   "PluginManager.h"
   "Process.h"
   "Restore.h"
+  "Requests.h"
   "Semaphore.h"
   "Session.h"
   "Timer.h"
