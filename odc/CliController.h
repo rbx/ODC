@@ -35,8 +35,7 @@ class CliController : public odc::core::CliControllerHelper<CliController>
     std::string requestSubmit(       const core::CommonParams& common, const core::SubmitParams& params)        { return generalReply(mCtrl.execSubmit(common, params)); }
     std::string requestActivate(     const core::CommonParams& common, const core::ActivateParams& params)      { return generalReply(mCtrl.execActivate(common, params)); }
     std::string requestRun(          const core::CommonParams& common, const core::RunParams& params)           { return generalReply(mCtrl.execRun(common, params)); }
-    std::string requestUpscale(      const core::CommonParams& common, const core::UpdateParams& params)        { return generalReply(mCtrl.execUpdate(common, params)); }
-    std::string requestDownscale(    const core::CommonParams& common, const core::UpdateParams& params)        { return generalReply(mCtrl.execUpdate(common, params)); }
+    std::string requestUpdate(       const core::CommonParams& common, const core::UpdateParams& params)        { return generalReply(mCtrl.execUpdate(common, params)); }
     std::string requestGetState(     const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execGetState(common, params)); }
     std::string requestSetProperties(const core::CommonParams& common, const core::SetPropertiesParams& params) { return generalReply(mCtrl.execSetProperties(common, params)); }
     std::string requestConfigure(    const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execConfigure(common, params)); }

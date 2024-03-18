@@ -213,10 +213,10 @@ struct RunRequest : public Request
     }
 };
 
-struct UpscaleRequest : public Request
+struct UpdateRequest : public Request
 {
-    UpscaleRequest() {}
-    UpscaleRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript)
+    UpdateRequest() {}
+    UpdateRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript)
         : mTopoFile(topoFile)
         , mTopoContent(topoContent)
         , mTopoScript(topoScript)
@@ -226,33 +226,9 @@ struct UpscaleRequest : public Request
     std::string mTopoContent; ///< Content of the XML topology
     std::string mTopoScript;  ///< Script that generates topology content
 
-    std::string_view name() const override { return "Upscale"; }
+    std::string_view name() const override { return "Update"; }
 
-    friend std::ostream& operator<<(std::ostream& os, const UpscaleRequest& r)
-    {
-        return os << r.name() << " Request: " << static_cast<const Request&>(r)
-            << "; topologyFile: "    << std::quoted(r.mTopoFile)
-            << "; topologyContent: " << std::quoted(r.mTopoContent)
-            << "; topologyScript: "  << std::quoted(r.mTopoScript);
-    }
-};
-
-struct DownscaleRequest : public Request
-{
-    DownscaleRequest() {}
-    DownscaleRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript)
-        : mTopoFile(topoFile)
-        , mTopoContent(topoContent)
-        , mTopoScript(topoScript)
-    {}
-
-    std::string mTopoFile;    ///< Path to the topology file
-    std::string mTopoContent; ///< Content of the XML topology
-    std::string mTopoScript;  ///< Script that generates topology content
-
-    std::string_view name() const override { return "Downscale"; }
-
-    friend std::ostream& operator<<(std::ostream& os, const DownscaleRequest& r)
+    friend std::ostream& operator<<(std::ostream& os, const UpdateRequest& r)
     {
         return os << r.name() << " Request: " << static_cast<const Request&>(r)
             << "; topologyFile: "    << std::quoted(r.mTopoFile)

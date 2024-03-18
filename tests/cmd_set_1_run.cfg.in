@@ -10,15 +10,15 @@
 .status
 .stop --id @TEST_SESSION1@
 .stop --id @TEST_SESSION2@
-.upscale --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id @TEST_SESSION1@
-.upscale --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id @TEST_SESSION2@
+.update --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id @TEST_SESSION1@
+.update --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id @TEST_SESSION2@
 .start --id @TEST_SESSION1@ --run 11
 .start --id @TEST_SESSION2@ --run 21
 .status
 .stop --id @TEST_SESSION1@
 .stop --id @TEST_SESSION2@
-.downscale --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id @TEST_SESSION1@
-.downscale --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id @TEST_SESSION2@
+.update --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id @TEST_SESSION1@
+.update --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id @TEST_SESSION2@
 .start --id @TEST_SESSION1@ --run 12
 .start --id @TEST_SESSION2@ --run 22
 .status

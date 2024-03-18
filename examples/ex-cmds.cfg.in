@@ -15,15 +15,15 @@
 .status
 .stop --id c3b2a1
 .stop --id f6e5d4
-.upscale --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id c3b2a1
-.upscale --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id f6e5d4
+.update --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id c3b2a1
+.update --topo @ODC_DATADIR@/ex-topo-infinite-up.xml --id f6e5d4
 .start --id c3b2a1 --run 11
 .start --id f6e5d4 --run 21
 .status
 .stop --id c3b2a1
 .stop --id f6e5d4
-.downscale --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id c3b2a1
-.downscale --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id f6e5d4
+.update --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id c3b2a1
+.update --topo @ODC_DATADIR@/ex-topo-infinite-down.xml --id f6e5d4
 .start --id c3b2a1 --run 12
 .start --id f6e5d4 --run 22
 .status

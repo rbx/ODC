@@ -84,8 +84,8 @@ class CliControllerHelper
     static char* commandGenerator(const char* text, int index)
     {
         static const std::vector<std::string> commands {
-            ".quit",   ".init",  ".submit", ".activate", ".run",  ".prop", ".upscale", ".downscale", ".state",
-            ".config", ".start", ".stop",   ".reset",    ".term", ".down", ".status",  ".batch",     ".sleep", ".help"
+            ".quit",   ".init",  ".submit", ".activate", ".run",  ".prop", ".update", ".state",
+            ".config", ".start", ".stop",   ".reset",    ".term", ".down", ".status", ".batch", ".sleep", ".help"
         };
         static std::vector<std::string> matches;
 
@@ -211,10 +211,8 @@ class CliControllerHelper
             reply = request("Activate",      args, &Owner::requestActivate,      CommonParams(), ActivateParams());
         } else if (cmd == ".run") {
             reply = request("Run",           args, &Owner::requestRun,           CommonParams(), RunParams());
-        } else if (cmd == ".upscale") {
-            reply = request("Upscale",       args, &Owner::requestUpscale,       CommonParams(), UpdateParams());
-        } else if (cmd == ".downscale") {
-            reply = request("Downscale",     args, &Owner::requestDownscale,     CommonParams(), UpdateParams());
+        } else if (cmd == ".update") {
+            reply = request("Update",        args, &Owner::requestUpdate,        CommonParams(), UpdateParams());
         } else if (cmd == ".config") {
             reply = request("Configure",     args, &Owner::requestConfigure,     CommonParams(), DeviceParams());
         } else if (cmd == ".state") {
@@ -259,8 +257,7 @@ class CliControllerHelper
                   << ".activate - Activates DDS topology (devices enter Idle state).\n"
                   << ".run - Combines Initialize, Submit and Activate commands. A new DDS session is always created.\n"
                   << ".prop - Set device properties.\n"
-                  << ".upscale - Upscale topology.\n"
-                  << ".downscale - Downscale topology.\n"
+                  << ".update - Update topology.\n"
                   << ".state - Get current aggregated state of devices.\n"
                   << ".config - Transitions devices to Ready state (InitDevice->CompleteInit->Bind->Connect->InitTask).\n"
                   << ".start - Transitions devices to Running state (via Run transition).\n"

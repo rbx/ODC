@@ -164,10 +164,10 @@ Submit request looks like:
 .config
 .start
 .stop
-.upscale --topo INSTALL_DIR/share/odc/ex-topo-infinite-up.xml
+.update --topo INSTALL_DIR/share/odc/ex-topo-infinite-up.xml
 .start
 .stop
-.downscale --topo INSTALL_DIR/share/odc/ex-topo-infinite-down.xml
+.update --topo INSTALL_DIR/share/odc/ex-topo-infinite-down.xml
 .start
 .stop
 .reset

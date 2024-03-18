@@ -78,8 +78,16 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestUpscale(const odc::core::CommonParams& common, const odc::core::UpdateParams& updateParams) { return updateRequest(common, updateParams); }
-    std::string requestDownscale(const odc::core::CommonParams& common, const odc::core::UpdateParams& updateParams) { return updateRequest(common, updateParams); }
+    std::string requestUpdate(const odc::core::CommonParams& common, const odc::core::UpdateParams& updateParams)
+    {
+        odc::UpdateRequest request;
+        updateCommonParams(common, &request);
+        request.set_topology(updateParams.mTopoFile);
+        odc::GeneralReply reply;
+        grpc::ClientContext context;
+        grpc::Status status = mStub->Update(&context, request, &reply);
+        return GetGeneralReplyString(status, reply);
+    }
 
     std::string requestGetState(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
     {
@@ -155,17 +163,6 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     }
 
   private:
-    std::string updateRequest(const odc::core::CommonParams& common, const odc::core::UpdateParams& updateParams)
-    {
-        odc::UpdateRequest request;
-        updateCommonParams(common, &request);
-        request.set_topology(updateParams.mTopoFile);
-        odc::GeneralReply reply;
-        grpc::ClientContext context;
-        grpc::Status status = mStub->Update(&context, request, &reply);
-        return GetGeneralReplyString(status, reply);
-    }
-
     template<typename Request, typename StubFunc>
     std::string stateChangeRequest(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams, StubFunc stubFunc)
     {
