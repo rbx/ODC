@@ -92,21 +92,42 @@ struct RequestResult
     std::vector<PartitionStatus> mPartitions; ///< Statuses of partitions
 };
 
+struct CommonParams
+{
+    CommonParams() {}
+    CommonParams(const std::string& partitionID, uint64_t runNr, int timeout)
+        : mPartitionID(partitionID), mRunNr(runNr), mTimeout(timeout)
+    {}
+
+    std::string mPartitionID; ///< Partition ID.
+    uint64_t mRunNr = 0;      ///< Run number.
+    size_t mTimeout = 0;      ///< Request timeout in seconds. 0 means "not set"
+
+    friend std::ostream& operator<<(std::ostream& os, const CommonParams& p)
+    {
+        return os << "CommonParams: PartitionID: " << quoted(p.mPartitionID)
+                  << "; runNr: "                   << p.mRunNr
+                  << "; timeout: "                 << p.mTimeout;
+    }
+};
+
 struct Request
 {
     Request() = default;
+    Request(const CommonParams& params)
+        : mCommonParams(params)
+    {}
 
-    size_t mTimeout = 0;      ///< Request timeout in seconds. 0 = infinite
+    CommonParams mCommonParams;
     Timer mTimer;             ///< Measuring the request processing time
-    RequestResult mResult;    ///< Request result
 
     virtual std::string_view name() const = 0;
 
     friend std::ostream& operator<<(std::ostream& os, const Request& r)
     {
-        return os << " PartitionID: "     << std::quoted(r.mResult.mPartitionID)
-                  << "; RunNr: "          << r.mResult.mRunNr
-                  << "; Timeout: "        << r.mTimeout;
+        return os << " PartitionID: " << std::quoted(r.mCommonParams.mPartitionID)
+                  << "; RunNr: "      << r.mCommonParams.mRunNr
+                  << "; Timeout: "    << r.mCommonParams.mTimeout;
     }
 
     virtual ~Request() = default;
@@ -115,8 +136,9 @@ struct Request
 struct InitializeRequest : public Request
 {
     InitializeRequest() {}
-    InitializeRequest(const std::string& sessionID)
-        : mDDSSessionID(sessionID)
+    InitializeRequest(const std::string& sessionID, const CommonParams& common)
+        : Request(common)
+        , mDDSSessionID(sessionID)
     {}
 
     std::string mDDSSessionID; ///< DDS session ID
@@ -133,9 +155,9 @@ struct InitializeRequest : public Request
 struct SubmitRequest : public Request
 {
     SubmitRequest() {}
-    SubmitRequest(const std::string& plugin, const std::string& resources)
-        : mPlugin(plugin)
-        , mResources(resources)
+    SubmitRequest(const std::string& plugin, const std::string& resources, const CommonParams& common)
+        : Request(common)
+        , mPlugin(plugin), mResources(resources)
     {}
 
     std::string mPlugin;    ///< ODC resource plugin name. Plugin has to be registered in ODC server.
@@ -154,10 +176,9 @@ struct SubmitRequest : public Request
 struct ActivateRequest : public Request
 {
     ActivateRequest() {}
-    ActivateRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript)
-        : mTopoFile(topoFile)
-        , mTopoContent(topoContent)
-        , mTopoScript(topoScript)
+    ActivateRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript, const CommonParams& common)
+        : Request(common)
+        , mTopoFile(topoFile), mTopoContent(topoContent), mTopoScript(topoScript)
     {}
 
     std::string mTopoFile;    ///< Path to the topology file
@@ -183,8 +204,9 @@ struct RunRequest : public Request
               const std::string& topoFile,
               const std::string& topoContent,
               const std::string& topoScript,
-              bool extractTopoResources)
-        : mPlugin(plugin)
+              bool extractTopoResources, const CommonParams& common)
+        : Request(common)
+        , mPlugin(plugin)
         , mResources(resources)
         , mTopoFile(topoFile)
         , mTopoContent(topoContent)
@@ -216,10 +238,9 @@ struct RunRequest : public Request
 struct UpdateRequest : public Request
 {
     UpdateRequest() {}
-    UpdateRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript)
-        : mTopoFile(topoFile)
-        , mTopoContent(topoContent)
-        , mTopoScript(topoScript)
+    UpdateRequest(const std::string& topoFile, const std::string& topoContent, const std::string& topoScript, const CommonParams& common)
+        : Request(common)
+        , mTopoFile(topoFile), mTopoContent(topoContent), mTopoScript(topoScript)
     {}
 
     std::string mTopoFile;    ///< Path to the topology file
@@ -237,36 +258,15 @@ struct UpdateRequest : public Request
     }
 };
 
-struct GetStateRequest : public Request
-{
-    GetStateRequest() {}
-    GetStateRequest(const std::string& path, bool detailed)
-        : mPath(path)
-        , mDetailed(detailed)
-    {}
-
-    std::string mPath;      ///< Path to the topology file
-    bool mDetailed = false; ///< If True than return also detailed information
-
-    std::string_view name() const override { return "GetState"; }
-
-    friend std::ostream& operator<<(std::ostream& os, const GetStateRequest& r)
-    {
-        return os << r.name() << " Request: " << static_cast<const Request&>(r)
-            << "; path: "     << std::quoted(r.mPath)
-            << "; detailed: " << r.mDetailed;
-    }
-};
-
 struct SetPropertiesRequest : public Request
 {
     using Prop = std::pair<std::string, std::string>;
     using Props = std::vector<Prop>;
 
     SetPropertiesRequest() {}
-    SetPropertiesRequest(const Props& props, const std::string& path)
-        : mPath(path)
-        , mProperties(props)
+    SetPropertiesRequest(const Props& props, const std::string& path, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mProperties(props)
     {}
 
     std::string mPath;        ///< Path in the topology
@@ -286,12 +286,33 @@ struct SetPropertiesRequest : public Request
     }
 };
 
+struct GetStateRequest : public Request
+{
+    GetStateRequest() {}
+    GetStateRequest(const std::string& path, bool detailed, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mDetailed(detailed)
+    {}
+
+    std::string mPath;      ///< Path to the topology file
+    bool mDetailed = false; ///< If True than return also detailed information
+
+    std::string_view name() const override { return "GetState"; }
+
+    friend std::ostream& operator<<(std::ostream& os, const GetStateRequest& r)
+    {
+        return os << r.name() << " Request: " << static_cast<const Request&>(r)
+            << "; path: "     << std::quoted(r.mPath)
+            << "; detailed: " << r.mDetailed;
+    }
+};
+
 struct ConfigureRequest : public Request
 {
     ConfigureRequest() {}
-    ConfigureRequest(const std::string& path, bool detailed)
-        : mPath(path)
-        , mDetailed(detailed)
+    ConfigureRequest(const std::string& path, bool detailed, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mDetailed(detailed)
     {}
 
     std::string mPath;      ///< Path to the topology file
@@ -310,9 +331,9 @@ struct ConfigureRequest : public Request
 struct StartRequest : public Request
 {
     StartRequest() {}
-    StartRequest(const std::string& path, bool detailed)
-        : mPath(path)
-        , mDetailed(detailed)
+    StartRequest(const std::string& path, bool detailed, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mDetailed(detailed)
     {}
 
     std::string mPath;      ///< Path to the topology file
@@ -331,9 +352,9 @@ struct StartRequest : public Request
 struct StopRequest : public Request
 {
     StopRequest() {}
-    StopRequest(const std::string& path, bool detailed)
-        : mPath(path)
-        , mDetailed(detailed)
+    StopRequest(const std::string& path, bool detailed, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mDetailed(detailed)
     {}
 
     std::string mPath;      ///< Path to the topology file
@@ -352,9 +373,9 @@ struct StopRequest : public Request
 struct ResetRequest : public Request
 {
     ResetRequest() {}
-    ResetRequest(const std::string& path, bool detailed)
-        : mPath(path)
-        , mDetailed(detailed)
+    ResetRequest(const std::string& path, bool detailed, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mDetailed(detailed)
     {}
 
     std::string mPath;      ///< Path to the topology file
@@ -373,9 +394,9 @@ struct ResetRequest : public Request
 struct TerminateRequest : public Request
 {
     TerminateRequest() {}
-    TerminateRequest(const std::string& path, bool detailed)
-        : mPath(path)
-        , mDetailed(detailed)
+    TerminateRequest(const std::string& path, bool detailed, const CommonParams& common)
+        : Request(common)
+        , mPath(path), mDetailed(detailed)
     {}
 
     std::string mPath;      ///< Path to the topology file
@@ -394,6 +415,9 @@ struct TerminateRequest : public Request
 struct ShutdownRequest : public Request
 {
     ShutdownRequest() {}
+    ShutdownRequest(const CommonParams& common)
+        : Request(common)
+    {}
 
     std::string_view name() const override { return "Shutdown"; }
 

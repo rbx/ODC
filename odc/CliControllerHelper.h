@@ -10,7 +10,7 @@
 #define ODC_CLICONTROLLERHELPER
 
 #include <odc/CliHelper.h>
-#include <odc/Params.h>
+#include <odc/Requests.h>
 #include <odc/Logger.h>
 
 #include <boost/algorithm/string.hpp>
@@ -149,20 +149,20 @@ class CliControllerHelper
         }
     }
 
-    template<typename... RequestParams>
-    bool parseCommand(const std::vector<std::string>& args, RequestParams&&... params)
+    template<typename Req>
+    bool parseCommand(const std::vector<std::string>& args, Req&& req)
     {
         bpo::options_description options("Request options");
         options.add_options()("help,h", "Print help");
 
-        // Loop over input parameters and add program options
-        std::apply([&options](auto&&... par) { ((CliHelper::addOptions(options, par)), ...); }, std::tie(params...));
+        CliHelper::addCommonOptions(options, req);
+        CliHelper::addOptions(options, req);
 
         bpo::variables_map vm;
         bpo::store(bpo::command_line_parser(args).options(options).run(), vm);
         bpo::notify(vm);
 
-        std::apply([&vm](auto&&... par) { ((CliHelper::parseOptions(vm, par)), ...); }, std::tie(params...));
+        CliHelper::parseOptions(vm, req);
 
         if (vm.count("help")) {
             std::cout << options << std::endl;
@@ -172,20 +172,16 @@ class CliControllerHelper
         return true;
     }
 
-    template<typename T>
-    void print(const T& value) { std::cout << "  " << value << "\n"; }
-
-    template<typename... RequestParams, typename Func>
-    std::string request(const std::string& name, const std::vector<std::string>& args, Func func, RequestParams&&... params)
+    template<typename Func, typename Req>
+    std::string request(const std::vector<std::string>& args, Func func, Req&& req)
     {
         std::string result;
         try {
-            if (parseCommand(args, params...)) {
-                std::cout << "Sending " << name << " request:" << "\n";
-                std::apply([this](auto&&... par) { ((this->print(par)), ...); }, std::tie(params...));
+            if (parseCommand(args, req)) {
+                std::cout << "Sending " << req.name() << " request: " << req << "\n";
                 std::cout << std::endl;
                 Owner* p = reinterpret_cast<Owner*>(this);
-                result = (p->*func)(params...);
+                result = (p->*func)(req);
             }
         } catch(const std::exception& e) {
             std::cout << "Error parsing command: " << e.what() << std::endl;
@@ -204,33 +200,33 @@ class CliControllerHelper
         std::string cmd{ args.empty() ? "" : args.front() };
 
         if (cmd == ".init") {
-            reply = request("Initialize",    args, &Owner::requestInitialize,    CommonParams(), InitializeParams());
+            reply = request(args, &Owner::requestInitialize,    InitializeRequest());
         } else if (cmd == ".submit") {
-            reply = request("Submit",        args, &Owner::requestSubmit,        CommonParams(), SubmitParams());
+            reply = request(args, &Owner::requestSubmit,        SubmitRequest());
         } else if (cmd == ".activate") {
-            reply = request("Activate",      args, &Owner::requestActivate,      CommonParams(), ActivateParams());
+            reply = request(args, &Owner::requestActivate,      ActivateRequest());
         } else if (cmd == ".run") {
-            reply = request("Run",           args, &Owner::requestRun,           CommonParams(), RunParams());
+            reply = request(args, &Owner::requestRun,           RunRequest());
         } else if (cmd == ".update") {
-            reply = request("Update",        args, &Owner::requestUpdate,        CommonParams(), UpdateParams());
-        } else if (cmd == ".config") {
-            reply = request("Configure",     args, &Owner::requestConfigure,     CommonParams(), DeviceParams());
-        } else if (cmd == ".state") {
-            reply = request("GetState",      args, &Owner::requestGetState,      CommonParams(), DeviceParams());
+            reply = request(args, &Owner::requestUpdate,        UpdateRequest());
         } else if (cmd == ".prop") {
-            reply = request("SetProperties", args, &Owner::requestSetProperties, CommonParams(), SetPropertiesParams());
+            reply = request(args, &Owner::requestSetProperties, SetPropertiesRequest());
+        } else if (cmd == ".state") {
+            reply = request(args, &Owner::requestGetState,      GetStateRequest());
+        } else if (cmd == ".config") {
+            reply = request(args, &Owner::requestConfigure,     ConfigureRequest());
         } else if (cmd == ".start") {
-            reply = request("Start",         args, &Owner::requestStart,         CommonParams(), DeviceParams());
+            reply = request(args, &Owner::requestStart,         StartRequest());
         } else if (cmd == ".stop") {
-            reply = request("Stop",          args, &Owner::requestStop,          CommonParams(), DeviceParams());
+            reply = request(args, &Owner::requestStop,          StopRequest());
         } else if (cmd == ".reset") {
-            reply = request("Reset",         args, &Owner::requestReset,         CommonParams(), DeviceParams());
+            reply = request(args, &Owner::requestReset,         ResetRequest());
         } else if (cmd == ".term") {
-            reply = request("Terminate",     args, &Owner::requestTerminate,     CommonParams(), DeviceParams());
+            reply = request(args, &Owner::requestTerminate,     TerminateRequest());
         } else if (cmd == ".down") {
-            reply = request("Shutdown",      args, &Owner::requestShutdown,      CommonParams());
+            reply = request(args, &Owner::requestShutdown,      ShutdownRequest());
         } else if (cmd == ".status") {
-            reply = request("Status",        args, &Owner::requestStatus,        StatusParams());
+            reply = request(args, &Owner::requestStatus,        StatusRequest());
         } else if (cmd == ".batch") {
             execBatch(args);
         } else if (cmd == ".sleep") {

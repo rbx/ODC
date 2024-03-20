@@ -31,20 +31,20 @@ class CliController : public odc::core::CliControllerHelper<CliController>
     void registerResourcePlugins(const core::PluginManager::PluginMap& pluginMap) { mCtrl.registerResourcePlugins(pluginMap); }
     void restore(const std::string& restoreId, const std::string& restoreDir) { mCtrl.restore(restoreId, restoreDir); }
 
-    std::string requestInitialize(   const core::CommonParams& common, const core::InitializeParams& params)    { return generalReply(mCtrl.execInitialize(common, params)); }
-    std::string requestSubmit(       const core::CommonParams& common, const core::SubmitParams& params)        { return generalReply(mCtrl.execSubmit(common, params)); }
-    std::string requestActivate(     const core::CommonParams& common, const core::ActivateParams& params)      { return generalReply(mCtrl.execActivate(common, params)); }
-    std::string requestRun(          const core::CommonParams& common, const core::RunParams& params)           { return generalReply(mCtrl.execRun(common, params)); }
-    std::string requestUpdate(       const core::CommonParams& common, const core::UpdateParams& params)        { return generalReply(mCtrl.execUpdate(common, params)); }
-    std::string requestGetState(     const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execGetState(common, params)); }
-    std::string requestSetProperties(const core::CommonParams& common, const core::SetPropertiesParams& params) { return generalReply(mCtrl.execSetProperties(common, params)); }
-    std::string requestConfigure(    const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execConfigure(common, params)); }
-    std::string requestStart(        const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execStart(common, params)); }
-    std::string requestStop(         const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execStop(common, params)); }
-    std::string requestReset(        const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execReset(common, params)); }
-    std::string requestTerminate(    const core::CommonParams& common, const core::DeviceParams& params)        { return generalReply(mCtrl.execTerminate(common, params)); }
-    std::string requestShutdown(     const core::CommonParams& common)                                          { return generalReply(mCtrl.execShutdown(common)); }
-    std::string requestStatus(       const core::StatusParams& params)                                          { return statusReply(mCtrl.execStatus(params)); }
+    std::string requestInitialize(const core::InitializeRequest& req)       { return generalReply(mCtrl.exec(req)); }
+    std::string requestSubmit(const core::SubmitRequest& req)               { return generalReply(mCtrl.exec(req)); }
+    std::string requestActivate(const core::ActivateRequest& req)           { return generalReply(mCtrl.exec(req)); }
+    std::string requestRun(const core::RunRequest& req)                     { return generalReply(mCtrl.exec(req)); }
+    std::string requestUpdate(const core::UpdateRequest& req)               { return generalReply(mCtrl.exec(req)); }
+    std::string requestSetProperties(const core::SetPropertiesRequest& req) { return generalReply(mCtrl.exec(req)); }
+    std::string requestGetState(const core::GetStateRequest& req)           { return generalReply(mCtrl.exec(req)); }
+    std::string requestConfigure(const core::ConfigureRequest& req)         { return generalReply(mCtrl.exec(req)); }
+    std::string requestStart(const core::StartRequest& req)                 { return generalReply(mCtrl.exec(req)); }
+    std::string requestStop(const core::StopRequest& req)                   { return generalReply(mCtrl.exec(req)); }
+    std::string requestReset(const core::ResetRequest& req)                 { return generalReply(mCtrl.exec(req)); }
+    std::string requestTerminate(const core::TerminateRequest& req)         { return generalReply(mCtrl.exec(req)); }
+    std::string requestShutdown(const core::ShutdownRequest& req)           { return generalReply(mCtrl.exec(req)); }
+    std::string requestStatus(const core::StatusRequest& req)               { return statusReply(mCtrl.exec(req)); }
 
   private:
     std::string generalReply(const core::RequestResult& result)

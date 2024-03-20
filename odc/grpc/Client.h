@@ -26,158 +26,163 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
         : mStub(odc::ODC::NewStub(channel))
     {}
 
-    std::string requestInitialize(const odc::core::CommonParams& common, const odc::core::InitializeParams& initParams)
+    std::string requestInitialize(const odc::core::InitializeRequest& initRequest)
     {
-        odc::InitializeRequest request;
-        updateCommonParams(common, &request);
-        request.set_sessionid(initParams.mDDSSessionID);
+        odc::InitializeRequest grpcRequest;
+        updateCommonParams(initRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_sessionid(initRequest.mDDSSessionID);
+
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Initialize(&context, request, &reply);
+        grpc::Status status = mStub->Initialize(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestSubmit(const odc::core::CommonParams& common, const odc::core::SubmitParams& submitParams)
+    std::string requestSubmit(const odc::core::SubmitRequest& submitRequest)
     {
-        odc::SubmitRequest request;
-        updateCommonParams(common, &request);
-        request.set_plugin(submitParams.mPlugin);
-        request.set_resources(submitParams.mResources);
+        odc::SubmitRequest grpcRequest;
+        updateCommonParams(submitRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_plugin(submitRequest.mPlugin);
+        grpcRequest.set_resources(submitRequest.mResources);
+
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Submit(&context, request, &reply);
+        grpc::Status status = mStub->Submit(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestActivate(const odc::core::CommonParams& common, const odc::core::ActivateParams& activateParams)
+    std::string requestActivate(const odc::core::ActivateRequest& activateRequest)
     {
-        odc::ActivateRequest request;
-        updateCommonParams(common, &request);
-        request.set_topology(activateParams.mTopoFile);
-        request.set_content(activateParams.mTopoContent);
-        request.set_script(activateParams.mTopoScript);
+        odc::ActivateRequest grpcRequest;
+        updateCommonParams(activateRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_topology(activateRequest.mTopoFile);
+        grpcRequest.set_content(activateRequest.mTopoContent);
+        grpcRequest.set_script(activateRequest.mTopoScript);
+
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Activate(&context, request, &reply);
+        grpc::Status status = mStub->Activate(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestRun(const odc::core::CommonParams& common, const odc::core::RunParams& runParams)
+    std::string requestRun(const odc::core::RunRequest& runRequest)
     {
-        odc::RunRequest request;
-        updateCommonParams(common, &request);
-        request.set_plugin(runParams.mPlugin);
-        request.set_resources(runParams.mResources);
-        request.set_topology(runParams.mTopoFile);
-        request.set_content(runParams.mTopoContent);
-        request.set_script(runParams.mTopoScript);
-        request.set_extracttoporesources(runParams.mExtractTopoResources);
+        odc::RunRequest grpcRequest;
+        updateCommonParams(runRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_plugin(runRequest.mPlugin);
+        grpcRequest.set_resources(runRequest.mResources);
+        grpcRequest.set_topology(runRequest.mTopoFile);
+        grpcRequest.set_content(runRequest.mTopoContent);
+        grpcRequest.set_script(runRequest.mTopoScript);
+        grpcRequest.set_extracttoporesources(runRequest.mExtractTopoResources);
+
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Run(&context, request, &reply);
+        grpc::Status status = mStub->Run(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestUpdate(const odc::core::CommonParams& common, const odc::core::UpdateParams& updateParams)
+    std::string requestUpdate(const odc::core::UpdateRequest& updateRequest)
     {
-        odc::UpdateRequest request;
-        updateCommonParams(common, &request);
-        request.set_topology(updateParams.mTopoFile);
+        odc::UpdateRequest grpcRequest;
+        updateCommonParams(updateRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_topology(updateRequest.mTopoFile);
+
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Update(&context, request, &reply);
+        grpc::Status status = mStub->Update(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestGetState(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
+    std::string requestSetProperties(const odc::core::SetPropertiesRequest& setPropsRequest)
     {
-        odc::StateRequest request;
-        updateCommonParams(common, &request);
-        request.set_path(deviceParams.mPath);
-        request.set_detailed(deviceParams.mDetailed);
-        odc::StateReply reply;
-        grpc::ClientContext context;
-        grpc::Status status = mStub->GetState(&context, request, &reply);
-        return GetStateReplyString(status, reply);
-    }
-
-    std::string requestSetProperties(const odc::core::CommonParams& common, const odc::core::SetPropertiesParams& setPropsParams)
-    {
-        odc::SetPropertiesRequest request;
-        updateCommonParams(common, &request);
-        request.set_path(setPropsParams.mPath);
-        for (const auto& v : setPropsParams.mProperties) {
-            auto prop = request.add_properties();
+        odc::SetPropertiesRequest grpcRequest;
+        updateCommonParams(setPropsRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_path(setPropsRequest.mPath);
+        for (const auto& v : setPropsRequest.mProperties) {
+            auto prop = grpcRequest.add_properties();
             prop->set_key(v.first);
             prop->set_value(v.second);
         }
+
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->SetProperties(&context, request, &reply);
+        grpc::Status status = mStub->SetProperties(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestConfigure(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
+    std::string requestGetState(const odc::core::GetStateRequest& getStateRequest)
     {
-        return stateChangeRequest<odc::ConfigureRequest>(common, deviceParams, &odc::ODC::Stub::Configure);
+        odc::StateRequest grpcRequest;
+        updateCommonParams(getStateRequest.mCommonParams, &grpcRequest);
+        grpcRequest.set_path(getStateRequest.mPath);
+        grpcRequest.set_detailed(getStateRequest.mDetailed);
+
+        odc::StateReply reply;
+        grpc::ClientContext context;
+        grpc::Status status = mStub->GetState(&context, grpcRequest, &reply);
+        return GetStateReplyString(status, reply);
     }
 
-    std::string requestStart(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
+    std::string requestConfigure(const odc::core::ConfigureRequest& configureRequest)
     {
-        return stateChangeRequest<odc::StartRequest>(common, deviceParams, &odc::ODC::Stub::Start);
+        return deviceRequest<odc::ConfigureRequest>(configureRequest, &odc::ODC::Stub::Configure);
+    }
+    std::string requestStart(const odc::core::StartRequest& startRequest)
+    {
+        return deviceRequest<odc::StartRequest>(startRequest, &odc::ODC::Stub::Start);
+    }
+    std::string requestStop(const odc::core::StopRequest& stopRequest)
+    {
+        return deviceRequest<odc::StopRequest>(stopRequest, &odc::ODC::Stub::Stop);
+    }
+    std::string requestReset(const odc::core::ResetRequest& resetRequest)
+    {
+        return deviceRequest<odc::ResetRequest>(resetRequest, &odc::ODC::Stub::Reset);
+    }
+    std::string requestTerminate(const odc::core::TerminateRequest& terminateRequest)
+    {
+        return deviceRequest<odc::TerminateRequest>(terminateRequest, &odc::ODC::Stub::Terminate);
     }
 
-    std::string requestStop(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
+    std::string requestShutdown(const odc::core::ShutdownRequest& shutdownRequest)
     {
-        return stateChangeRequest<odc::StopRequest>(common, deviceParams, &odc::ODC::Stub::Stop);
-    }
+        odc::ShutdownRequest grpcRequest;
+        updateCommonParams(shutdownRequest.mCommonParams, &grpcRequest);
 
-    std::string requestReset(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
-    {
-        return stateChangeRequest<odc::ResetRequest>(common, deviceParams, &odc::ODC::Stub::Reset);
-    }
-
-    std::string requestTerminate(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams)
-    {
-        return stateChangeRequest<odc::TerminateRequest>(common, deviceParams, &odc::ODC::Stub::Terminate);
-    }
-
-    std::string requestShutdown(const odc::core::CommonParams& common)
-    {
-        odc::ShutdownRequest request;
-        updateCommonParams(common, &request);
         odc::GeneralReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Shutdown(&context, request, &reply);
+        grpc::Status status = mStub->Shutdown(&context, grpcRequest, &reply);
         return GetGeneralReplyString(status, reply);
     }
 
-    std::string requestStatus(const odc::core::StatusParams& statusParams)
+    std::string requestStatus(const odc::core::StatusRequest& statusRequest)
     {
-        odc::StatusRequest request;
-        request.set_running(statusParams.mRunning);
+        odc::StatusRequest grpcRequest;
+        grpcRequest.set_running(statusRequest.mRunning);
+
         odc::StatusReply reply;
         grpc::ClientContext context;
-        grpc::Status status = mStub->Status(&context, request, &reply);
+        grpc::Status status = mStub->Status(&context, grpcRequest, &reply);
         return GetStatusReplyString(status, reply);
     }
 
   private:
-    template<typename Request, typename StubFunc>
-    std::string stateChangeRequest(const odc::core::CommonParams& common, const odc::core::DeviceParams& deviceParams, StubFunc stubFunc)
+    template<typename GRPCRequest, typename R, typename StubFunc>
+    std::string deviceRequest(const R& request, StubFunc stubFunc)
     {
         // Protobuf message takes the ownership and deletes the object
         odc::StateRequest* stateChange = new odc::StateRequest();
-        updateCommonParams(common, stateChange);
-        stateChange->set_path(deviceParams.mPath);
-        stateChange->set_detailed(deviceParams.mDetailed);
+        updateCommonParams(request.mCommonParams, stateChange);
+        stateChange->set_path(request.mPath);
+        stateChange->set_detailed(request.mDetailed);
 
-        Request request;
-        request.set_allocated_request(stateChange);
+        GRPCRequest grpcRequest;
+        grpcRequest.set_allocated_request(stateChange);
 
         odc::StateReply reply;
         grpc::ClientContext context;
-        grpc::Status status = (mStub.get()->*stubFunc)(&context, request, &reply);
+        grpc::Status status = (mStub.get()->*stubFunc)(&context, grpcRequest, &reply);
         return GetStateReplyString(status, reply);
     }
 

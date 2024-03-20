@@ -11,7 +11,7 @@
 
 #include <odc/BuildConstants.h>
 #include <odc/Logger.h>
-#include <odc/Params.h>
+#include <odc/Requests.h>
 #include <odc/PluginManager.h>
 
 #include <boost/algorithm/string.hpp>
@@ -123,79 +123,104 @@ class CliHelper
 
     // Request specific options
 
-    static void addOptions(boost::program_options::options_description& options, CommonParams& common)
+    template<typename Request>
+    static void addCommonOptions(boost::program_options::options_description& options, Request& request)
     {
         using namespace boost::program_options;
         options.add_options()
-            ("id", value<std::string>(&common.mPartitionID)->default_value(""), "Partition ID")
-            ("run", value<uint64_t>(&common.mRunNr)->default_value(0), "Run Nr")
-            ("timeout", value<size_t>(&common.mTimeout)->default_value(0), "Request timeout");
+            ("id", value<std::string>(&request.mCommonParams.mPartitionID)->default_value(""), "Partition ID")
+            ("run", value<uint64_t>(&request.mCommonParams.mRunNr)->default_value(0), "Run Nr")
+            ("timeout", value<size_t>(&request.mCommonParams.mTimeout)->default_value(0), "Request timeout");
     }
 
-    static void addOptions(boost::program_options::options_description& options, InitializeParams& params)
+    static void addCommonOptions(boost::program_options::options_description& /* options */, BatchOptions& /* request */)
+    {
+        // Nothing to do for BatchOptions
+    }
+
+    static void addCommonOptions(boost::program_options::options_description& /* options */, SleepOptions& /* request */)
+    {
+        // Nothing to do for SleepOptions
+    }
+
+    static void addOptions(boost::program_options::options_description& options, InitializeRequest& request)
     {
         options.add_options()
-            ("sid", boost::program_options::value<std::string>(&params.mDDSSessionID)->default_value(""), "DDS session ID");
+            ("sid", boost::program_options::value<std::string>(&request.mDDSSessionID)->default_value(""), "DDS session ID");
     }
 
-    static void addOptions(boost::program_options::options_description& options, ActivateParams& params)
-    {
-        using namespace boost::program_options;
-        options.add_options()
-            ("topo", value<std::string>(&params.mTopoFile)->implicit_value(""), "Topology filepath")
-            ("content", value<std::string>(&params.mTopoContent)->implicit_value(""), "Topology content")
-            ("script", value<std::string>(&params.mTopoScript)->implicit_value(""), "Topology script");
-    }
-
-    static void addOptions(boost::program_options::options_description& options, UpdateParams& params)
-    {
-        using namespace boost::program_options;
-        options.add_options()
-            ("topo", value<std::string>(&params.mTopoFile), "Topology filepath")
-            ("content", value<std::string>(&params.mTopoContent), "Topology content")
-            ("script", value<std::string>(&params.mTopoScript)->implicit_value(""), "Topology script");
-    }
-
-    static void addOptions(boost::program_options::options_description& options, SubmitParams& params)
+    static void addOptions(boost::program_options::options_description& options, SubmitRequest& request)
     {
         using namespace boost::program_options;
         options.add_options()
-            ("plugin,p", value<std::string>(&params.mPlugin), "ODC resource plugin name.")
-            ("resources,r", value<std::string>(&params.mResources), "A resource description for a corresponding ODC resource plugin.");
+            ("plugin,p", value<std::string>(&request.mPlugin), "ODC resource plugin name.")
+            ("resources,r", value<std::string>(&request.mResources), "A resource description for a corresponding ODC resource plugin.");
     }
 
-    static void addOptions(boost::program_options::options_description& options, RunParams& params)
+    static void addOptions(boost::program_options::options_description& options, ActivateRequest& request)
     {
         using namespace boost::program_options;
         options.add_options()
-            ("plugin,p", value<std::string>(&params.mPlugin), "ODC resource plugin name.")
-            ("resources,r", value<std::string>(&params.mResources), "A resource description for a corresponding ODC resource plugin.")
-            ("topo", value<std::string>(&params.mTopoFile)->implicit_value(""), "Topology filepath")
-            ("content", value<std::string>(&params.mTopoContent)->implicit_value(""), "Topology content")
-            ("script", value<std::string>(&params.mTopoScript)->implicit_value(""), "Topology script")
-            ("extract-topo-resources", bool_switch(&params.mExtractTopoResources)->default_value(false), "Extract required resources from the topology file (plugin & resources fields are ignored)");
+            ("topo", value<std::string>(&request.mTopoFile)->implicit_value(""), "Topology filepath")
+            ("content", value<std::string>(&request.mTopoContent)->implicit_value(""), "Topology content")
+            ("script", value<std::string>(&request.mTopoScript)->implicit_value(""), "Topology script");
     }
 
-    static void addOptions(boost::program_options::options_description& options, DeviceParams& params)
+    static void addOptions(boost::program_options::options_description& options, RunRequest& request)
     {
         using namespace boost::program_options;
         options.add_options()
-            ("path", value<std::string>(&params.mPath)->default_value(""), "Topology path of devices")
-            ("detailed", bool_switch(&params.mDetailed)->default_value(false), "Detailed reply of devices");
+            ("plugin,p", value<std::string>(&request.mPlugin), "ODC resource plugin name.")
+            ("resources,r", value<std::string>(&request.mResources), "A resource description for a corresponding ODC resource plugin.")
+            ("topo", value<std::string>(&request.mTopoFile)->implicit_value(""), "Topology filepath")
+            ("content", value<std::string>(&request.mTopoContent)->implicit_value(""), "Topology content")
+            ("script", value<std::string>(&request.mTopoScript)->implicit_value(""), "Topology script")
+            ("extract-topo-resources", bool_switch(&request.mExtractTopoResources)->default_value(false), "Extract required resources from the topology file (plugin & resources fields are ignored)");
     }
 
-    static void addOptions(boost::program_options::options_description& options, SetPropertiesParams& params)
+    static void addOptions(boost::program_options::options_description& options, UpdateRequest& request)
+    {
+        using namespace boost::program_options;
+        options.add_options()
+            ("topo", value<std::string>(&request.mTopoFile), "Topology filepath")
+            ("content", value<std::string>(&request.mTopoContent), "Topology content")
+            ("script", value<std::string>(&request.mTopoScript)->implicit_value(""), "Topology script");
+    }
+
+    static void addOptions(boost::program_options::options_description& options, SetPropertiesRequest& request)
     {
         using namespace boost::program_options;
         options.add_options()
             ("prop", value<std::vector<std::string>>()->multitoken(), "Key-value pairs for a set properties request ( key1:value1 key2:value2 )")
-            ("path", value<std::string>(&params.mPath)->default_value(""), "Path for a set property request");
+            ("path", value<std::string>(&request.mPath)->default_value(""), "Path for a set property request");
     }
 
-    static void addOptions(boost::program_options::options_description& options, StatusParams& params)
+    static void addOptions(boost::program_options::options_description& options, GetStateRequest& request)  { addDeviceOptions(options, request); }
+    static void addOptions(boost::program_options::options_description& options, ConfigureRequest& request) { addDeviceOptions(options, request); }
+    static void addOptions(boost::program_options::options_description& options, StartRequest& request)     { addDeviceOptions(options, request); }
+    static void addOptions(boost::program_options::options_description& options, StopRequest& request)      { addDeviceOptions(options, request); }
+    static void addOptions(boost::program_options::options_description& options, ResetRequest& request)     { addDeviceOptions(options, request); }
+    static void addOptions(boost::program_options::options_description& options, TerminateRequest& request) { addDeviceOptions(options, request); }
+
+    static void addOptions(boost::program_options::options_description& /* options */, ShutdownRequest& /* request */)
+    {
+        // No options for the shutdown request
+    }
+
+    // Requests with path + detailed options
+    template<typename Request>
+    static void addDeviceOptions(boost::program_options::options_description& options, Request& request)
+    {
+        using namespace boost::program_options;
+        options.add_options()
+            ("path", value<std::string>(&request.mPath)->default_value(""), "Topology path of devices")
+            ("detailed", bool_switch(&request.mDetailed)->default_value(false), "Detailed reply of devices");
+    }
+
+    static void addOptions(boost::program_options::options_description& options, StatusRequest& request)
     {
         options.add_options()
-            ("running", boost::program_options::bool_switch(&params.mRunning)->default_value(false), "Select only running sessions");
+            ("running", boost::program_options::bool_switch(&request.mRunning)->default_value(false), "Select only running sessions");
     }
 
     // Options parsing
@@ -218,15 +243,15 @@ class CliHelper
         }
     }
 
-    template<typename... RequestParams>
-    static void parseOptions(const boost::program_options::variables_map& /*vm*/, RequestParams&&... /*params*/)
-    {} // Default implementation does nothing
+    // Default implementation does nothing
+    template<typename Request>
+    static void parseOptions(const boost::program_options::variables_map& /*vm*/, Request&& /*req*/) {}
 
-    static void parseOptions(const boost::program_options::variables_map& vm, SetPropertiesParams& params)
+    static void parseOptions(const boost::program_options::variables_map& vm, SetPropertiesRequest& request)
     {
         if (vm.count("prop")) {
             const auto& kvp(vm["prop"].as<std::vector<std::string>>());
-            SetPropertiesParams::Props props;
+            SetPropertiesRequest::Props props;
             for (const auto& v : kvp) {
                 std::vector<std::string> strs;
                 boost::split(strs, v, boost::is_any_of(":"));
@@ -236,7 +261,7 @@ class CliHelper
                     throw std::runtime_error("Wrong property format for string '" + v + "'. Use 'key:value'.");
                 }
             }
-            params.mProperties = props;
+            request.mProperties = props;
         }
     }
 
