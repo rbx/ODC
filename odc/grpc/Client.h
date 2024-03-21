@@ -29,7 +29,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestInitialize(const odc::core::InitializeRequest& initRequest)
     {
         odc::InitializeRequest grpcRequest;
-        updateCommonParams(initRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(initRequest.mCommon, &grpcRequest);
         grpcRequest.set_sessionid(initRequest.mDDSSessionID);
 
         odc::GeneralReply reply;
@@ -41,7 +41,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestSubmit(const odc::core::SubmitRequest& submitRequest)
     {
         odc::SubmitRequest grpcRequest;
-        updateCommonParams(submitRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(submitRequest.mCommon, &grpcRequest);
         grpcRequest.set_plugin(submitRequest.mPlugin);
         grpcRequest.set_resources(submitRequest.mResources);
 
@@ -54,7 +54,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestActivate(const odc::core::ActivateRequest& activateRequest)
     {
         odc::ActivateRequest grpcRequest;
-        updateCommonParams(activateRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(activateRequest.mCommon, &grpcRequest);
         grpcRequest.set_topology(activateRequest.mTopoFile);
         grpcRequest.set_content(activateRequest.mTopoContent);
         grpcRequest.set_script(activateRequest.mTopoScript);
@@ -68,7 +68,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestRun(const odc::core::RunRequest& runRequest)
     {
         odc::RunRequest grpcRequest;
-        updateCommonParams(runRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(runRequest.mCommon, &grpcRequest);
         grpcRequest.set_plugin(runRequest.mPlugin);
         grpcRequest.set_resources(runRequest.mResources);
         grpcRequest.set_topology(runRequest.mTopoFile);
@@ -85,7 +85,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestUpdate(const odc::core::UpdateRequest& updateRequest)
     {
         odc::UpdateRequest grpcRequest;
-        updateCommonParams(updateRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(updateRequest.mCommon, &grpcRequest);
         grpcRequest.set_topology(updateRequest.mTopoFile);
 
         odc::GeneralReply reply;
@@ -97,7 +97,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestSetProperties(const odc::core::SetPropertiesRequest& setPropsRequest)
     {
         odc::SetPropertiesRequest grpcRequest;
-        updateCommonParams(setPropsRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(setPropsRequest.mCommon, &grpcRequest);
         grpcRequest.set_path(setPropsRequest.mPath);
         for (const auto& v : setPropsRequest.mProperties) {
             auto prop = grpcRequest.add_properties();
@@ -114,7 +114,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestGetState(const odc::core::GetStateRequest& getStateRequest)
     {
         odc::StateRequest grpcRequest;
-        updateCommonParams(getStateRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(getStateRequest.mCommon, &grpcRequest);
         grpcRequest.set_path(getStateRequest.mPath);
         grpcRequest.set_detailed(getStateRequest.mDetailed);
 
@@ -148,7 +148,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     std::string requestShutdown(const odc::core::ShutdownRequest& shutdownRequest)
     {
         odc::ShutdownRequest grpcRequest;
-        updateCommonParams(shutdownRequest.mCommonParams, &grpcRequest);
+        updateCommonParams(shutdownRequest.mCommon, &grpcRequest);
 
         odc::GeneralReply reply;
         grpc::ClientContext context;
@@ -173,7 +173,7 @@ class GrpcClient : public odc::core::CliControllerHelper<GrpcClient>
     {
         // Protobuf message takes the ownership and deletes the object
         odc::StateRequest* stateChange = new odc::StateRequest();
-        updateCommonParams(request.mCommonParams, stateChange);
+        updateCommonParams(request.mCommon, stateChange);
         stateChange->set_path(request.mPath);
         stateChange->set_detailed(request.mDetailed);
 

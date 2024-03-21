@@ -128,9 +128,9 @@ class CliHelper
     {
         using namespace boost::program_options;
         options.add_options()
-            ("id", value<std::string>(&request.mCommonParams.mPartitionID)->default_value(""), "Partition ID")
-            ("run", value<uint64_t>(&request.mCommonParams.mRunNr)->default_value(0), "Run Nr")
-            ("timeout", value<size_t>(&request.mCommonParams.mTimeout)->default_value(0), "Request timeout");
+            ("id", value<std::string>(&request.mCommon.mPartitionID)->default_value(""), "Partition ID")
+            ("run", value<uint64_t>(&request.mCommon.mRunNr)->default_value(0), "Run Nr")
+            ("timeout", value<size_t>(&request.mCommon.mTimeout)->default_value(0), "Request timeout");
     }
 
     static void addCommonOptions(boost::program_options::options_description& /* options */, BatchOptions& /* request */)

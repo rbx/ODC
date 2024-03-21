@@ -209,12 +209,12 @@ class Controller
     template<typename R>
     std::chrono::seconds requestTimeout(const Request& request, const std::string& op) const
     {
-        std::chrono::seconds configuredTimeoutS = (request.mCommonParams.mTimeout == 0 ? mTimeout : std::chrono::seconds(request.mCommonParams.mTimeout));
+        std::chrono::seconds configuredTimeoutS = (request.mCommon.mTimeout == 0 ? mTimeout : std::chrono::seconds(request.mCommon.mTimeout));
         std::chrono::milliseconds configuredTimeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(configuredTimeoutS);
         // subtract time elapsed since the beginning of the request
         std::chrono::milliseconds realTimeoutMs = configuredTimeoutMs - request.mTimer.duration();
-        OLOG(debug, request.mCommonParams) << op << ": configured request timeout: " << configuredTimeoutMs.count() << "ms "
-            << (request.mCommonParams.mTimeout == 0 ? "(controller default)" : "(request parameter)")
+        OLOGR(debug, request) << op << ": configured request timeout: " << configuredTimeoutMs.count() << "ms "
+            << (request.mCommon.mTimeout == 0 ? "(controller default)" : "(request parameter)")
             << ", remaining time: " << realTimeoutMs.count() << "ms";
         if (realTimeoutMs.count() < 0) {
             throw Error(MakeErrorCode(ErrorCode::RequestTimeout), toString("Request timeout. Remaining time is: ", realTimeoutMs.count(), "ms"));

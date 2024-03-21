@@ -115,19 +115,19 @@ struct Request
 {
     Request() = default;
     Request(const CommonParams& params)
-        : mCommonParams(params)
+        : mCommon(params)
     {}
 
-    CommonParams mCommonParams;
+    CommonParams mCommon;
     Timer mTimer;             ///< Measuring the request processing time
 
     virtual std::string_view name() const = 0;
 
     friend std::ostream& operator<<(std::ostream& os, const Request& r)
     {
-        return os << " PartitionID: " << std::quoted(r.mCommonParams.mPartitionID)
-                  << "; RunNr: "      << r.mCommonParams.mRunNr
-                  << "; Timeout: "    << r.mCommonParams.mTimeout;
+        return os << " PartitionID: " << std::quoted(r.mCommon.mPartitionID)
+                  << "; RunNr: "      << r.mCommon.mRunNr
+                  << "; Timeout: "    << r.mCommon.mTimeout;
     }
 
     virtual ~Request() = default;

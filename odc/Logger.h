@@ -44,8 +44,8 @@
 #define OLOG_SEVERITY_COMMON(severity, common)                BOOST_LOG_CHANNEL_SEV(odc::core::Logger::instance().logger(), odc::core::toString(common.mPartitionID, ":", common.mRunNr), odc::core::ESeverity::severity)
 #define OLOG_SEVERITY_PARTITION_RUN(severity, partition, run) BOOST_LOG_CHANNEL_SEV(odc::core::Logger::instance().logger(), odc::core::toString(partition, ":", run), odc::core::ESeverity::severity)
 #define OLOG_GET_MACRO(arg1, arg2, arg3, NAME, ...) NAME
-// #define OLOGR(severity, req) BOOST_LOG_CHANNEL_SEV(odc::core::Logger::instance().logger(), odc::core::toString(req.mCommonParams.mPartitionID, ":", req.mCommonParams.mRunNr), odc::core::ESeverity::severity)
 #define OLOG(...) OLOG_GET_MACRO(__VA_ARGS__, OLOG_SEVERITY_PARTITION_RUN, OLOG_SEVERITY_COMMON, OLOG_SEVERITY, UNUSED)(__VA_ARGS__)
+#define OLOGR(severity, req)                                  BOOST_LOG_CHANNEL_SEV(odc::core::Logger::instance().logger(), odc::core::toString(req.mCommon.mPartitionID, ":", req.mCommon.mRunNr), odc::core::ESeverity::severity)
 // clang-format on
 
 namespace odc::core {
