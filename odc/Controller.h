@@ -78,24 +78,25 @@ class Controller
     template<typename R>
     RequestResult execWrapper(R& request)
     {
+        RequestResult result;
         try {
-            exec(request);
+            result = exec(request);
         } catch (const odc::core::Error& e) {
             OLOG(error) << "Exception reached top of the " << request.name() << " request: odc::core::Error: " << e;
-            request.mResult.mError = e;
+            result.mError = e;
         } catch (const odc::core::RuntimeError& re) {
             OLOG(fatal) << "Exception reached top of the " << request.name() << " request: odc::core::RuntimeError: " << re.what();
-            request.mResult.mError = Error(MakeErrorCode(ErrorCode::RuntimeError), re.what());
+            result.mError = Error(MakeErrorCode(ErrorCode::RuntimeError), re.what());
         } catch (const std::exception& e) {
             OLOG(fatal) << "Exception reached top of the " << request.name() << " request: std::exception: " << e.what();
-            request.mResult.mError = Error(MakeErrorCode(ErrorCode::RuntimeError), e.what());
+            result.mError = Error(MakeErrorCode(ErrorCode::RuntimeError), e.what());
         } catch (...) {
             OLOG(fatal) << "Exception reached top of the " << request.name() << " request: unknown exception";
-            request.mResult.mError = Error(MakeErrorCode(ErrorCode::RuntimeError), "unknown exception");
+            result.mError = Error(MakeErrorCode(ErrorCode::RuntimeError), "unknown exception");
         }
 
-        request.mResult.mExecTime = request.mTimer.duration();
-        return request.mResult;
+        result.mExecTime = request.mTimer.duration().count();
+        return result;
     }
 
     /// \brief Initialize DDS session

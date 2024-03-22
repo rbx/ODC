@@ -119,7 +119,7 @@ struct Request
     {}
 
     CommonParams mCommon;
-    Timer mTimer;             ///< Measuring the request processing time
+    Timer mTimer; ///< Measuring the request processing time
 
     virtual std::string_view name() const = 0;
 

@@ -31,20 +31,20 @@ class CliController : public odc::core::CliControllerHelper<CliController>
     void registerResourcePlugins(const core::PluginManager::PluginMap& pluginMap) { mCtrl.registerResourcePlugins(pluginMap); }
     void restore(const std::string& restoreId, const std::string& restoreDir) { mCtrl.restore(restoreId, restoreDir); }
 
-    std::string requestInitialize(const core::InitializeRequest& req)       { return generalReply(mCtrl.exec(req)); }
-    std::string requestSubmit(const core::SubmitRequest& req)               { return generalReply(mCtrl.exec(req)); }
-    std::string requestActivate(const core::ActivateRequest& req)           { return generalReply(mCtrl.exec(req)); }
-    std::string requestRun(const core::RunRequest& req)                     { return generalReply(mCtrl.exec(req)); }
-    std::string requestUpdate(const core::UpdateRequest& req)               { return generalReply(mCtrl.exec(req)); }
-    std::string requestSetProperties(const core::SetPropertiesRequest& req) { return generalReply(mCtrl.exec(req)); }
-    std::string requestGetState(const core::GetStateRequest& req)           { return generalReply(mCtrl.exec(req)); }
-    std::string requestConfigure(const core::ConfigureRequest& req)         { return generalReply(mCtrl.exec(req)); }
-    std::string requestStart(const core::StartRequest& req)                 { return generalReply(mCtrl.exec(req)); }
-    std::string requestStop(const core::StopRequest& req)                   { return generalReply(mCtrl.exec(req)); }
-    std::string requestReset(const core::ResetRequest& req)                 { return generalReply(mCtrl.exec(req)); }
-    std::string requestTerminate(const core::TerminateRequest& req)         { return generalReply(mCtrl.exec(req)); }
-    std::string requestShutdown(const core::ShutdownRequest& req)           { return generalReply(mCtrl.exec(req)); }
-    std::string requestStatus(const core::StatusRequest& req)               { return statusReply(mCtrl.exec(req)); }
+    std::string requestInitialize(const core::InitializeRequest& req)       { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestSubmit(const core::SubmitRequest& req)               { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestActivate(const core::ActivateRequest& req)           { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestRun(const core::RunRequest& req)                     { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestUpdate(const core::UpdateRequest& req)               { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestSetProperties(const core::SetPropertiesRequest& req) { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestGetState(const core::GetStateRequest& req)           { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestConfigure(const core::ConfigureRequest& req)         { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestStart(const core::StartRequest& req)                 { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestStop(const core::StopRequest& req)                   { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestReset(const core::ResetRequest& req)                 { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestTerminate(const core::TerminateRequest& req)         { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestShutdown(const core::ShutdownRequest& req)           { return generalReply(mCtrl.execWrapper(req)); }
+    std::string requestStatus(const core::StatusRequest& req)               { return statusReply(mCtrl.execWrapper(req)); }
 
   private:
     std::string generalReply(const core::RequestResult& result)
