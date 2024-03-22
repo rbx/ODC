@@ -29,10 +29,9 @@ using namespace odc::core;
 using namespace std;
 namespace bfs = boost::filesystem;
 
-RequestResult Controller::exec(const InitializeRequest& req)
+RequestResult Controller::exec(const InitializeRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     if (req.mDDSSessionID.empty()) {
         // Create new DDS session
@@ -56,10 +55,9 @@ RequestResult Controller::exec(const InitializeRequest& req)
     return createRequestResult(req, *(partition.mSession), error, "Initialize done", TopologyState(), {});
 }
 
-RequestResult Controller::exec(const SubmitRequest& req)
+RequestResult Controller::exec(const SubmitRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     auto hosts = submit(req, req.mCommon, *(partition.mSession), error, req.mPlugin, req.mResources, false);
 
@@ -261,10 +259,9 @@ void Controller::updateTopology(const CommonParams& common, Session& session)
     OLOG(info, common) << "Saved updated topology file as " << session.mTopoFilePath;
 }
 
-RequestResult Controller::exec(const ActivateRequest& req)
+RequestResult Controller::exec(const ActivateRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     if (!partition.mSession->mDDSSession.IsRunning()) {
         fillAndLogError(req.mCommon, error, ErrorCode::DDSActivateTopologyFailed, "DDS session is not running. Use Init or Run to start the session.");
@@ -297,10 +294,9 @@ void Controller::activate(const R& req, Partition& partition, Error& error)
         && waitForState(req, partition, error, "", DeviceState::Idle);
 }
 
-RequestResult Controller::exec(const RunRequest& req)
+RequestResult Controller::exec(const RunRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
     std::unordered_set<std::string> hosts;
 
     if (!partition.mSession->mRunAttempted) {
@@ -348,10 +344,9 @@ RequestResult Controller::exec(const RunRequest& req)
     return createRequestResult(req, *(partition.mSession), error, "Run done", std::move(topologyState), hosts);
 }
 
-RequestResult Controller::exec(const UpdateRequest& req)
+RequestResult Controller::exec(const UpdateRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState;
 
@@ -377,10 +372,9 @@ RequestResult Controller::exec(const UpdateRequest& req)
     return createRequestResult(req, *(partition.mSession), error, "Update done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const ShutdownRequest& req)
+RequestResult Controller::exec(const ShutdownRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     // grab the session id before shutting down the session, to return it in the reply
     string ddsSessionId = to_string(partition.mSession->mDDSSession.getSessionID());
@@ -393,40 +387,36 @@ RequestResult Controller::exec(const ShutdownRequest& req)
     return createRequestResult(req, ddsSessionId, error, "Shutdown done", TopologyState(), {});
 }
 
-RequestResult Controller::exec(const SetPropertiesRequest& req)
+RequestResult Controller::exec(const SetPropertiesRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState;
     setProperties(req, partition, error, req.mPath, req.mProperties, topologyState);
     return createRequestResult(req, *(partition.mSession), error, "SetProperties done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const GetStateRequest& req)
+RequestResult Controller::exec(const GetStateRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     getState(req.mCommon, partition, error, req.mPath, topologyState);
     return createRequestResult(req, *(partition.mSession), error, "GetState done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const ConfigureRequest& req)
+RequestResult Controller::exec(const ConfigureRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeStateConfigure(req, partition, error, req.mPath, topologyState);
     return createRequestResult(req, *(partition.mSession), error, "Configure done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const StartRequest& req)
+RequestResult Controller::exec(const StartRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     // update run number
     partition.mSession->mLastRunNr.store(req.mCommon.mRunNr);
@@ -436,10 +426,9 @@ RequestResult Controller::exec(const StartRequest& req)
     return createRequestResult(req, *(partition.mSession), error, "Start done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const StopRequest& req)
+RequestResult Controller::exec(const StopRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeState(req, partition, error, req.mPath, TopoTransition::Stop, topologyState);
@@ -450,20 +439,18 @@ RequestResult Controller::exec(const StopRequest& req)
     return createRequestResult(req, *(partition.mSession), error, "Stop done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const ResetRequest& req)
+RequestResult Controller::exec(const ResetRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeStateReset(req, partition, error, req.mPath, topologyState);
     return createRequestResult(req, *(partition.mSession), error, "Reset done", std::move(topologyState), {});
 }
 
-RequestResult Controller::exec(const TerminateRequest& req)
+RequestResult Controller::exec(const TerminateRequest& req, Partition& partition)
 {
     Error error;
-    auto& partition = acquirePartition(req.mCommon);
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeState(req, partition, error, req.mPath, TopoTransition::End, topologyState);
@@ -1561,13 +1548,15 @@ void Controller::restore(const string& id, const string& dir)
 
     OLOG(info) << "Restoring sessions for " << quoted(id);
     auto data{ RestoreFile(id, dir).read() };
-    for (const auto& v : data.mPartitions) {
-        OLOG(info, v.mPartitionID, 0) << "Restoring (" << quoted(v.mPartitionID) << "/" << quoted(v.mDDSSessionId) << ")";
-        auto result{ exec(InitializeRequest(v.mDDSSessionId, CommonParams(v.mPartitionID, 0, 0))) };
+    for (auto& p : data.mPartitions) {
+        OLOG(info, p.mPartitionID, 0) << "Restoring (" << quoted(p.mPartitionID) << "/" << quoted(p.mDDSSessionId) << ")";
+        CommonParams common(p.mPartitionID, 0, 0);
+        odc::core::Partition& partition = acquirePartition(common);
+        auto result{ exec(InitializeRequest(p.mDDSSessionId, CommonParams(p.mPartitionID, 0, 0)), partition) };
         if (result.mError.mCode) {
-            OLOG(info, v.mPartitionID, 0) << "Failed to attach to the session for partition " << quoted(v.mPartitionID) << ", session " << quoted(v.mDDSSessionId);
+            OLOG(info, p.mPartitionID, 0) << "Failed to attach to the session for partition " << quoted(p.mPartitionID) << ", session " << quoted(p.mDDSSessionId);
         } else {
-            OLOG(info, v.mPartitionID, 0) << "Successfully attached to the session (" << quoted(v.mPartitionID) << "/" << quoted(v.mDDSSessionId) << ")";
+            OLOG(info, p.mPartitionID, 0) << "Successfully attached to the session (" << quoted(p.mPartitionID) << "/" << quoted(p.mDDSSessionId) << ")";
         }
     }
 }

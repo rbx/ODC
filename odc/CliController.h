@@ -44,7 +44,7 @@ class CliController : public odc::core::CliControllerHelper<CliController>
     std::string requestReset(const core::ResetRequest& req)                 { return generalReply(mCtrl.execWrapper(req)); }
     std::string requestTerminate(const core::TerminateRequest& req)         { return generalReply(mCtrl.execWrapper(req)); }
     std::string requestShutdown(const core::ShutdownRequest& req)           { return generalReply(mCtrl.execWrapper(req)); }
-    std::string requestStatus(const core::StatusRequest& req)               { return statusReply(mCtrl.execWrapper(req)); }
+    std::string requestStatus(const core::StatusRequest& req)               { return statusReply(mCtrl.exec(req)); }
 
   private:
     std::string generalReply(const core::RequestResult& result)

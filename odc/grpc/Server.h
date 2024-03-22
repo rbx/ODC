@@ -339,7 +339,7 @@ class GrpcServer final : public odc::ODC::Service
         OLOG(info) << "Status request for ODC " << ODC_VERSION << " (DDS " << DDS_VERSION_STRING << ") from " << client << ": runnning: " << req->running();
 
         const core::StatusRequest statusRequest{ req->running() };
-        const core::RequestResult res{ mCtrl.execWrapper(statusRequest) };
+        const core::RequestResult res{ mCtrl.exec(statusRequest) };
         setupStatusReply(rep, res);
         logStatusReply(*rep);
         return ::grpc::Status::OK;

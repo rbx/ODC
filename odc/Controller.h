@@ -79,8 +79,11 @@ class Controller
     RequestResult execWrapper(R& request)
     {
         RequestResult result;
+
+        odc::core::Partition& partition = acquirePartition(request.mCommon);
+
         try {
-            result = exec(request);
+            result = exec(request, partition);
         } catch (const odc::core::Error& e) {
             OLOG(error) << "Exception reached top of the " << request.name() << " request: odc::core::Error: " << e;
             result.mError = e;
@@ -100,38 +103,38 @@ class Controller
     }
 
     /// \brief Initialize DDS session
-    RequestResult exec(const InitializeRequest& request);
+    RequestResult exec(const InitializeRequest& request, Partition& partition);
     /// \brief Submit DDS agents. Can be called multiple times in order to submit more agents.
-    RequestResult exec(const SubmitRequest& request);
+    RequestResult exec(const SubmitRequest& request, Partition& partition);
     /// \brief Activate topology
-    RequestResult exec(const ActivateRequest& request);
+    RequestResult exec(const ActivateRequest& request, Partition& partition);
     /// \brief Run request combines Initialize, Submit and Activate
-    RequestResult exec(const RunRequest& request);
+    RequestResult exec(const RunRequest& request, Partition& partition);
     /// \brief Update topology. Can be called multiple times in order to update topology.
-    RequestResult exec(const UpdateRequest& request);
+    RequestResult exec(const UpdateRequest& request, Partition& partition);
     /// \brief Set properties
-    RequestResult exec(const SetPropertiesRequest& request);
+    RequestResult exec(const SetPropertiesRequest& request, Partition& partition);
 
     /// \brief Get state
-    RequestResult exec(const GetStateRequest& request);
+    RequestResult exec(const GetStateRequest& request, Partition& partition);
 
     // change state requests
 
     /// \brief Configure devices: InitDevice->CompleteInit->Bind->Connect->InitTask
-    RequestResult exec(const ConfigureRequest& request);
+    RequestResult exec(const ConfigureRequest& request, Partition& partition);
     /// \brief Start devices: Run
-    RequestResult exec(const StartRequest& request);
+    RequestResult exec(const StartRequest& request, Partition& partition);
     /// \brief Stop devices: Stop
-    RequestResult exec(const StopRequest& request);
+    RequestResult exec(const StopRequest& request, Partition& partition);
     /// \brief Reset devices: ResetTask->ResetDevice
-    RequestResult exec(const ResetRequest& request);
+    RequestResult exec(const ResetRequest& request, Partition& partition);
     /// \brief Terminate devices: End
-    RequestResult exec(const TerminateRequest& request);
+    RequestResult exec(const TerminateRequest& request, Partition& partition);
     /// \brief Shutdown DDS session
-    RequestResult exec(const ShutdownRequest& reques);
+    RequestResult exec(const ShutdownRequest& request, Partition& partition);
 
     /// \brief Status request
-    RequestResult exec(const StatusRequest& params);
+    RequestResult exec(const StatusRequest& request);
 
     static void extractRequirements(const CommonParams& common, Session& session);
 
