@@ -380,16 +380,14 @@ RequestResult Controller::exec(const UpdateRequest& req)
 RequestResult Controller::exec(const ShutdownRequest& req)
 {
     Error error;
+    auto& partition = acquirePartition(req.mCommon);
 
     // grab the session id before shutting down the session, to return it in the reply
-    string ddsSessionId;
-    {
-        auto& partition = acquirePartition(req.mCommon);
-        ddsSessionId = to_string(partition.mSession->mDDSSession.getSessionID());
-        shutdownDDSSession(req.mCommon, partition, error);
-    }
+    string ddsSessionId = to_string(partition.mSession->mDDSSession.getSessionID());
+    shutdownDDSSession(req.mCommon, partition, error);
 
     removePartition(req.mCommon);
+    // partition& no longer valid from here on
     updateRestore();
 
     return createRequestResult(req, ddsSessionId, error, "Shutdown done", TopologyState(), {});
