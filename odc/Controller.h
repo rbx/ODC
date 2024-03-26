@@ -17,10 +17,13 @@
 #include <dds/Tools.h>
 #include <dds/Topology.h>
 
+#include <boost/uuid/uuid_io.hpp>
+
 #include <chrono>
 #include <map>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <unordered_set>
 
 namespace odc::core
@@ -194,8 +197,6 @@ class Controller
     void logLineWarningOrDetectedSev(   const CommonParams& common, const std::string& line);
 
     template<typename R>
-    RequestResult createRequestResult(const R& req, const Session& session, const Error& error, const std::string& msg, TopologyState&& topologyState, const std::unordered_set<std::string>& hosts);
-    template<typename R>
     RequestResult createRequestResult(const R& req, const std::string& sessionId, const Error& error, const std::string& msg, TopologyState&& topologyState, const std::unordered_set<std::string>& hosts);
     AggregatedState aggregateStateForPath(const dds::topology_api::CTopology* ddsTopo, const TopoState& topoState, const std::string& path);
 
@@ -211,14 +212,15 @@ class Controller
     std::string topoFilepath(const R& req, const std::string& topologyFile, const std::string& topologyContent, const std::string& topologyScript);
 
     template<typename R>
-    std::chrono::seconds requestTimeout(const Request& request, const std::string& op) const
+    std::chrono::seconds requestTimeout(const R& req, const std::string& op) const
     {
-        std::chrono::seconds configuredTimeoutS = (request.mCommon.mTimeout == 0 ? mTimeout : std::chrono::seconds(request.mCommon.mTimeout));
+        static_assert(std::is_base_of<odc::core::Request, R>::value, "R must be derived from odc::core::Request.");
+        std::chrono::seconds configuredTimeoutS = (req.mCommon.mTimeout == 0 ? mTimeout : std::chrono::seconds(req.mCommon.mTimeout));
         std::chrono::milliseconds configuredTimeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(configuredTimeoutS);
         // subtract time elapsed since the beginning of the request
-        std::chrono::milliseconds realTimeoutMs = configuredTimeoutMs - request.mTimer.duration();
-        OLOGR(debug, request) << op << ": configured request timeout: " << configuredTimeoutMs.count() << "ms "
-            << (request.mCommon.mTimeout == 0 ? "(controller default)" : "(request parameter)")
+        std::chrono::milliseconds realTimeoutMs = configuredTimeoutMs - req.mTimer.duration();
+        OLOGR(debug, req) << op << ": configured request timeout: " << configuredTimeoutMs.count() << "ms "
+            << (req.mCommon.mTimeout == 0 ? "(controller default)" : "(request parameter)")
             << ", remaining time: " << realTimeoutMs.count() << "ms";
         if (realTimeoutMs.count() < 0) {
             throw Error(MakeErrorCode(ErrorCode::RequestTimeout), toString("Request timeout. Remaining time is: ", realTimeoutMs.count(), "ms"));
@@ -230,6 +232,11 @@ class Controller
     uint32_t getNumSlots(const R& req, Session& session) const;
     template<typename R>
     dds::tools_api::SAgentInfoRequest::responseVector_t getAgentInfo(const R& req, Session& session) const;
+
+    std::string getSessionIDStr(const Partition& partition)
+    {
+        return boost::uuids::to_string(partition.mSession->mDDSSession.getSessionID());
+    }
 
     void printStateStats(const CommonParams& common, const TopoState& topoState, bool debugLog = false);
 };

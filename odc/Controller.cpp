@@ -52,7 +52,7 @@ RequestResult Controller::exec(const InitializeRequest& req, Partition& partitio
         }
     }
     updateRestore();
-    return createRequestResult(req, *(partition.mSession), error, "Initialize done", TopologyState(), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Initialize done", TopologyState(), {});
 }
 
 RequestResult Controller::exec(const SubmitRequest& req, Partition& partition)
@@ -61,7 +61,7 @@ RequestResult Controller::exec(const SubmitRequest& req, Partition& partition)
 
     auto hosts = submit(req, req.mCommon, *(partition.mSession), error, req.mPlugin, req.mResources, false);
 
-    return createRequestResult(req, *(partition.mSession), error, "Submit done", TopologyState(), hosts);
+    return createRequestResult(req, getSessionIDStr(partition), error, "Submit done", TopologyState(), hosts);
 }
 
 template<typename R>
@@ -86,7 +86,7 @@ unordered_set<string> Controller::submit(const R& req, const CommonParams& commo
             if (extractResources) {
                 ddsParams = mSubmit.makeParams(mRMS, mZoneCfgs, session.mAgentGroupInfo);
             } else {
-                ddsParams = mSubmit.makeParams(plugin, res, common, session.mZoneInfo, session.mNinfo, requestTimeout<R>(req, "submit::MakeParams"));
+                ddsParams = mSubmit.makeParams(plugin, res, common, session.mZoneInfo, session.mNinfo, requestTimeout(req, "submit::MakeParams"));
             }
         } catch (Error& e) {
             error = e;
@@ -282,7 +282,7 @@ RequestResult Controller::exec(const ActivateRequest& req, Partition& partition)
     }
 
     TopologyState topologyState(error.mCode ? AggregatedState::Undefined : AggregatedState::Idle);
-    return createRequestResult(req, *(partition.mSession), error, "Activate done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Activate done", std::move(topologyState), {});
 }
 
 template<typename R>
@@ -341,7 +341,7 @@ RequestResult Controller::exec(const RunRequest& req, Partition& partition)
     }
 
     TopologyState topologyState(error.mCode ? AggregatedState::Undefined : AggregatedState::Idle);
-    return createRequestResult(req, *(partition.mSession), error, "Run done", std::move(topologyState), hosts);
+    return createRequestResult(req, getSessionIDStr(partition), error, "Run done", std::move(topologyState), hosts);
 }
 
 RequestResult Controller::exec(const UpdateRequest& req, Partition& partition)
@@ -369,7 +369,7 @@ RequestResult Controller::exec(const UpdateRequest& req, Partition& partition)
             && waitForState(req, partition, error, "", DeviceState::Idle)
             && changeStateConfigure(req, partition, error, "", topologyState);
     }
-    return createRequestResult(req, *(partition.mSession), error, "Update done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Update done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const ShutdownRequest& req, Partition& partition)
@@ -393,7 +393,7 @@ RequestResult Controller::exec(const SetPropertiesRequest& req, Partition& parti
 
     TopologyState topologyState;
     setProperties(req, partition, error, req.mPath, req.mProperties, topologyState);
-    return createRequestResult(req, *(partition.mSession), error, "SetProperties done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "SetProperties done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const GetStateRequest& req, Partition& partition)
@@ -402,7 +402,7 @@ RequestResult Controller::exec(const GetStateRequest& req, Partition& partition)
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     getState(req.mCommon, partition, error, req.mPath, topologyState);
-    return createRequestResult(req, *(partition.mSession), error, "GetState done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "GetState done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const ConfigureRequest& req, Partition& partition)
@@ -411,7 +411,7 @@ RequestResult Controller::exec(const ConfigureRequest& req, Partition& partition
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeStateConfigure(req, partition, error, req.mPath, topologyState);
-    return createRequestResult(req, *(partition.mSession), error, "Configure done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Configure done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const StartRequest& req, Partition& partition)
@@ -423,7 +423,7 @@ RequestResult Controller::exec(const StartRequest& req, Partition& partition)
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeState(req, partition, error, req.mPath, TopoTransition::Run, topologyState);
-    return createRequestResult(req, *(partition.mSession), error, "Start done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Start done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const StopRequest& req, Partition& partition)
@@ -436,7 +436,7 @@ RequestResult Controller::exec(const StopRequest& req, Partition& partition)
     // reset the run number, which is valid only for the running state
     partition.mSession->mLastRunNr.store(0);
 
-    return createRequestResult(req, *(partition.mSession), error, "Stop done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Stop done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const ResetRequest& req, Partition& partition)
@@ -445,7 +445,7 @@ RequestResult Controller::exec(const ResetRequest& req, Partition& partition)
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeStateReset(req, partition, error, req.mPath, topologyState);
-    return createRequestResult(req, *(partition.mSession), error, "Reset done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Reset done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const TerminateRequest& req, Partition& partition)
@@ -454,7 +454,7 @@ RequestResult Controller::exec(const TerminateRequest& req, Partition& partition
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
     changeState(req, partition, error, req.mPath, TopoTransition::End, topologyState);
-    return createRequestResult(req, *(partition.mSession), error, "Terminate done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), error, "Terminate done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const StatusRequest& req)
@@ -549,19 +549,10 @@ void Controller::updateHistory(const CommonParams& common, const std::string& se
 }
 
 template<typename R>
-RequestResult Controller::createRequestResult(const R& req, const Session& session, const Error& error, const string& msg, TopologyState&& topologyState, const std::unordered_set<std::string>& hosts)
+RequestResult Controller::createRequestResult(const R& req, const string& sidStr, const Error& error, const string& msg, TopologyState&& topologyState, const std::unordered_set<std::string>& hosts)
 {
-    string sidStr = to_string(session.mDDSSession.getSessionID());
     StatusCode status = error.mCode ? StatusCode::error : StatusCode::ok;
     return RequestResult(status, msg, req.mTimer.duration().count(), error, req.mCommon.mPartitionID, req.mCommon.mRunNr, sidStr, std::move(topologyState), hosts);
-}
-
-// TODO: is this one used?
-template<typename R>
-RequestResult Controller::createRequestResult(const R& req, const string& sessionId, const Error& error, const string& msg, TopologyState&& topologyState, const std::unordered_set<std::string>& hosts)
-{
-    StatusCode status = error.mCode ? StatusCode::error : StatusCode::ok;
-    return RequestResult(status, msg, req.mTimer.duration().count(), error, req.mCommon.mPartitionID, req.mCommon.mRunNr, sessionId, std::move(topologyState), hosts);
 }
 
 bool Controller::createDDSSession(const CommonParams& common, Session& session, Error& error)
@@ -695,7 +686,7 @@ bool Controller::submitDDSAgents(const R& req, Session& session, Error& error, c
     try {
         mutex mtx;
         unique_lock<mutex> lock(mtx);
-        cv_status waitStatus = cv.wait_for(lock, requestTimeout<R>(req, "wait_for lock in submitDDSAgents"));
+        cv_status waitStatus = cv.wait_for(lock, requestTimeout(req, "wait_for lock in submitDDSAgents"));
 
         if (waitStatus == cv_status::timeout) {
             success = false;
@@ -715,7 +706,7 @@ template<typename R>
 bool Controller::waitForNumActiveSlots(const R& req, Session& session, Error& error, size_t numSlots)
 {
     try {
-        session.mDDSSession.waitForNumSlots<dds::tools_api::CSession::EAgentState::active>(numSlots, requestTimeout<R>(req, "waitForNumActiveSlots..waitForNumSlots<dds::tools_api::CSession::EAgentState::active>"));
+        session.mDDSSession.waitForNumSlots<dds::tools_api::CSession::EAgentState::active>(numSlots, requestTimeout(req, "waitForNumActiveSlots..waitForNumSlots<dds::tools_api::CSession::EAgentState::active>"));
     } catch (Error& e) {
         error = e;
         OLOGR(error, req) << "Error while waiting for DDS slots: " << e;
@@ -795,7 +786,7 @@ bool Controller::activateDDSTopology(const R& req, Session& session, Error& erro
 
     try {
         unique_lock<mutex> lock(mtx);
-        cv_status waitStatus = cv.wait_for(lock, requestTimeout<R>(req, "wait_for lock in activateDDSTopology"));
+        cv_status waitStatus = cv.wait_for(lock, requestTimeout(req, "wait_for lock in activateDDSTopology"));
 
         if (waitStatus == cv_status::timeout) {
             success = false;
@@ -1087,7 +1078,7 @@ bool Controller::changeState(const R& req, Partition& partition, Error& error, c
     bool success = true;
 
     try {
-        auto [errorCode, topoState] = partition.mTopology->ChangeState(transition, path, requestTimeout<R>(req, toString("ChangeState(", transition, ")")));
+        auto [errorCode, topoState] = partition.mTopology->ChangeState(transition, path, requestTimeout(req, toString("ChangeState(", transition, ")")));
 
         success = !errorCode;
         if (!success) {
@@ -1138,7 +1129,7 @@ bool Controller::waitForState(const R& req, Partition& partition, Error& error, 
     bool success = false;
 
     try {
-        auto [errorCode, failedDevices] = partition.mTopology->WaitForState(DeviceState::Undefined, expState, path, requestTimeout<R>(req, toString("WaitForState(", expState, ")")));
+        auto [errorCode, failedDevices] = partition.mTopology->WaitForState(DeviceState::Undefined, expState, path, requestTimeout(req, toString("WaitForState(", expState, ")")));
 
         success = !errorCode;
         if (!success) {
@@ -1431,14 +1422,14 @@ void Controller::ShutdownDDSAgent(const R& req, Session& session, uint64_t agent
         SAgentCommandRequest::request_t agentCmd;
         agentCmd.m_commandType = SAgentCommandRequestData::EAgentCommandType::shutDownByID;
         agentCmd.m_arg1 = agentID;
-        session.mDDSSession.syncSendRequest<SAgentCommandRequest>(agentCmd, requestTimeout<R>(req.mCommon, "ShutdownDDSAgent..syncSendRequest<SAgentCommandRequest>"));
+        session.mDDSSession.syncSendRequest<SAgentCommandRequest>(agentCmd, requestTimeout(req, "ShutdownDDSAgent..syncSendRequest<SAgentCommandRequest>"));
 
         // TODO: notification on agent shutdown in development in DDS
         currentSlotCount = getNumSlots(req, session);
         OLOG(info, req.mCommon) << "Current number of slots: " << currentSlotCount;
 
         if (currentSlotCount != expectedNumSlots) {
-            int64_t secondsLeft = requestTimeout<R>(req.mCommon, "ShutdownDDSAgent..measure remaining time").count();
+            int64_t secondsLeft = requestTimeout(req, "ShutdownDDSAgent..measure remaining time").count();
             if (secondsLeft > 0) {
                 int64_t maxAttempts = (secondsLeft * 1000) / 50;
                 while (currentSlotCount != expectedNumSlots && maxAttempts > 0) {
@@ -1467,7 +1458,7 @@ dds::tools_api::SAgentInfoRequest::responseVector_t Controller::getAgentInfo(con
 {
     using namespace dds::tools_api;
     SAgentInfoRequest::responseVector_t agentInfo;
-    session.mDDSSession.syncSendRequest<SAgentInfoRequest>(SAgentInfoRequest::request_t(), agentInfo, requestTimeout<R>(req, "getAgentInfo..syncSendRequest<SAgentInfoRequest>"));
+    session.mDDSSession.syncSendRequest<SAgentInfoRequest>(SAgentInfoRequest::request_t(), agentInfo, requestTimeout(req, "getAgentInfo..syncSendRequest<SAgentInfoRequest>"));
     return agentInfo;
 }
 
@@ -1476,7 +1467,7 @@ uint32_t Controller::getNumSlots(const R& req, Session& session) const
 {
     using namespace dds::tools_api;
     SAgentCountRequest::response_t agentCountInfo;
-    session.mDDSSession.syncSendRequest<SAgentCountRequest>(SAgentCountRequest::request_t(), agentCountInfo, requestTimeout<R>(req, "getNumSlots..syncSendRequest<SAgentCountRequest>"));
+    session.mDDSSession.syncSendRequest<SAgentCountRequest>(SAgentCountRequest::request_t(), agentCountInfo, requestTimeout(req, "getNumSlots..syncSendRequest<SAgentCountRequest>"));
     return agentCountInfo.m_activeSlotsCount;
 }
 
@@ -1501,7 +1492,7 @@ string Controller::topoFilepath(const R& req, const string& topologyFile, const 
         OLOG(info, req.mCommon) << "Executing topology generation script: " << topologyScript;
         std::vector<std::pair<std::string, std::string>> extraEnv;
         extraEnv.emplace_back(std::make_pair("ODC_TOPO_GEN_CMD", topologyScript));
-        execute(topologyScript, requestTimeout<R>(req, "topoFilepath..execute"), &out, &err, &exitCode, extraEnv);
+        execute(topologyScript, requestTimeout(req, "topoFilepath..execute"), &out, &err, &exitCode, extraEnv);
 
         const size_t shortSize = 75;
         string shortSuffix;
