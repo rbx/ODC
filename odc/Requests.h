@@ -120,6 +120,7 @@ struct Request
 
     CommonParams mCommon;
     Timer mTimer; ///< Measuring the request processing time
+    mutable Error mError; ///< In case of error containes information about the error
 
     virtual std::string_view name() const = 0;
 

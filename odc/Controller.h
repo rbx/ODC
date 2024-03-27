@@ -156,39 +156,39 @@ class Controller
     void updateHistory(const CommonParams& common, const std::string& sessionId);
 
     template<typename R>
-    std::unordered_set<std::string> submit(const R& req, const CommonParams& common, Session& session, Error& error, const std::string& plugin, const std::string& res, bool extractResources);
+    std::unordered_set<std::string> submit(const R& req, Session& session, bool extractResources);
     template<typename R>
-    void activate(const R& req, Partition& partition, Error& error);
+    void activate(const R& req, Partition& partition);
 
     bool createDDSSession(           const CommonParams& common, Session& session, Error& error);
     bool attachToDDSSession(         const CommonParams& common, Session& session, Error& error, const std::string& sessionID);
     bool shutdownDDSSession(         const CommonParams& common, Partition& partition, Error& error);
-    std::string getActiveDDSTopology(const InitializeRequest& req, Session& session, Error& error);
+    std::string getActiveDDSTopology(const InitializeRequest& req, Session& session);
 
     template<typename R>
-    bool submitDDSAgents(      const R& req, Session& session, Error& error, const DDSSubmitParams& params);
+    bool submitDDSAgents(      const R& req, Session& session, const DDSSubmitParams& params);
     template<typename R>
     bool waitForNumActiveSlots(const R& req, Session& session, Error& error, size_t numSlots);
     template<typename R>
     void ShutdownDDSAgent(     const R& req, Session& session, uint64_t agentID);
 
     template<typename R>
-    bool activateDDSTopology(const R& req, Session& session, Error& error, dds::tools_api::STopologyRequest::request_t::EUpdateType updateType);
+    bool activateDDSTopology(const R& req, Session& session, dds::tools_api::STopologyRequest::request_t::EUpdateType updateType);
     bool createDDSTopology(  const CommonParams& common, Session& session, Error& error);
 
     bool createTopology(const CommonParams& common, Partition& partition, Error& error);
     bool resetTopology(Partition& partition);
 
     template<typename R>
-    bool changeState(         const R& req, Partition& partition, Error& error, const std::string& path, TopoTransition transition, TopologyState& topologyState);
+    bool changeState(         const R& req, Partition& partition, const std::string& path, TopoTransition transition, TopologyState& topologyState);
     template<typename R>
-    bool changeStateConfigure(const R& req, Partition& partition, Error& error, const std::string& path, TopologyState& topologyState);
+    bool changeStateConfigure(const R& req, Partition& partition, const std::string& path, TopologyState& topologyState);
     template<typename R>
-    bool changeStateReset(    const R& req, Partition& partition, Error& error, const std::string& path, TopologyState& topologyState);
+    bool changeStateReset(    const R& req, Partition& partition, const std::string& path, TopologyState& topologyState);
     template<typename R>
-    bool waitForState(        const R& req, Partition& partition, Error& error, const std::string& path, DeviceState expState);
-    bool setProperties(       const SetPropertiesRequest& req, Partition& partition, Error& error, const std::string& path, const SetPropertiesRequest::Props& props, TopologyState& topologyState);
-    void getState(            const CommonParams& common, Partition& partition, Error& error, const std::string& path, TopologyState& state);
+    bool waitForState(        const R& req, Partition& partition, const std::string& path, DeviceState expState);
+    bool setProperties(       const SetPropertiesRequest& req, Partition& partition, TopologyState& topologyState);
+    void getState(            const GetStateRequest& req, Partition& partition, TopologyState& state);
 
     void fillAndLogError(               const CommonParams& common, Error& error, ErrorCode errorCode, const std::string& msg);
     void fillAndLogFatalError(          const CommonParams& common, Error& error, ErrorCode errorCode, const std::string& msg);

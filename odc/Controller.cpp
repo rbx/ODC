@@ -31,95 +31,91 @@ namespace bfs = boost::filesystem;
 
 RequestResult Controller::exec(const InitializeRequest& req, Partition& partition)
 {
-    Error error;
-
     if (req.mDDSSessionID.empty()) {
         // Create new DDS session
         // Shutdown DDS session if it is running already
-        shutdownDDSSession(req.mCommon, partition, error)
-            && createDDSSession(req.mCommon, *(partition.mSession), error);
+        shutdownDDSSession(req.mCommon, partition, req.mError)
+            && createDDSSession(req.mCommon, *(partition.mSession), req.mError);
     } else {
         // Attach to an existing DDS session
-        bool success = attachToDDSSession(req.mCommon, *(partition.mSession), error, req.mDDSSessionID);
+        bool success = attachToDDSSession(req.mCommon, *(partition.mSession), req.mError, req.mDDSSessionID);
         if (success) {
             // Request current active topology, if any
-            partition.mSession->mTopoFilePath = getActiveDDSTopology(req, *(partition.mSession), error);
+            partition.mSession->mTopoFilePath = getActiveDDSTopology(req, *(partition.mSession));
             // If a topology is active, create DDS and FairMQ topology objects
             if (!partition.mSession->mTopoFilePath.empty()) {
-                createDDSTopology(req.mCommon, *(partition.mSession), error)
-                    && createTopology(req.mCommon, partition, error);
+                createDDSTopology(req.mCommon, *(partition.mSession), req.mError)
+                    && createTopology(req.mCommon, partition, req.mError);
             }
         }
     }
     updateRestore();
-    return createRequestResult(req, getSessionIDStr(partition), error, "Initialize done", TopologyState(), {});
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Initialize done", TopologyState(), {});
 }
 
 RequestResult Controller::exec(const SubmitRequest& req, Partition& partition)
 {
-    Error error;
+    auto hosts = submit(req, *(partition.mSession), false);
 
-    auto hosts = submit(req, req.mCommon, *(partition.mSession), error, req.mPlugin, req.mResources, false);
-
-    return createRequestResult(req, getSessionIDStr(partition), error, "Submit done", TopologyState(), hosts);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Submit done", TopologyState(), hosts);
 }
 
 template<typename R>
-unordered_set<string> Controller::submit(const R& req, const CommonParams& common, Session& session, Error& error, const string& plugin, const string& res, bool extractResources)
+unordered_set<string> Controller::submit(const R& req, Session& session, bool extractResources)
 {
     unordered_set<string> hosts;
     if (extractResources) {
-        OLOG(info, common) << "Attempting submission with resources extracted from topology.";
+        OLOGR(info, req) << "Attempting submission with resources extracted from topology.";
     } else {
-        OLOG(info, common) << "Attempting submission with resources: " << res;
+        OLOGR(info, req) << "Attempting submission with resources: " << req.mResources;
     }
 
     if (!session.mDDSSession.IsRunning()) {
-        fillAndLogError(common, error, ErrorCode::DDSSubmitAgentsFailed, "DDS session is not running. Use Init or Run to start the session.");
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSSubmitAgentsFailed, "DDS session is not running. Use Init or Run to start the session.");
         return hosts;
     }
 
     // Get DDS submit parameters from ODC resource plugin
     vector<DDSSubmitParams> ddsParams;
-    if (!error.mCode) {
+    if (!req.mError.mCode) {
         try {
             if (extractResources) {
                 ddsParams = mSubmit.makeParams(mRMS, mZoneCfgs, session.mAgentGroupInfo);
             } else {
-                ddsParams = mSubmit.makeParams(plugin, res, common, session.mZoneInfo, session.mNinfo, requestTimeout(req, "submit::MakeParams"));
+                ddsParams = mSubmit.makeParams(req.mPlugin, req.mResources, req.mCommon, session.mZoneInfo, session.mNinfo, requestTimeout(req, "submit::MakeParams"));
             }
         } catch (Error& e) {
-            error = e;
-            OLOG(error, common) << "Resource plugin failed: " << e;
+            req.mError = e;
+            OLOGR(error, req) << "Resource plugin failed: " << e;
             return hosts;
         } catch (exception& e) {
-            fillAndLogError(common, error, ErrorCode::ResourcePluginFailed, toString("Resource plugin failed: ", e.what()));
+            fillAndLogError(req.mCommon, req.mError, ErrorCode::ResourcePluginFailed, toString("Resource plugin failed: ", e.what()));
             return hosts;
         }
     }
 
     size_t expectedNumSlots = session.mTotalSlots;
 
-    if (!error.mCode) {
-        OLOG(info, common) << "Preparing to submit " << ddsParams.size() << " configurations:";
+    if (!req.mError.mCode) {
+        OLOGR(info, req) << "Preparing to submit " << ddsParams.size() << " configurations:";
         for (unsigned int i = 0; i < ddsParams.size(); ++i) {
-            OLOG(info, common) << "  [" << i + 1 << "/" << ddsParams.size() << "]: " << ddsParams.at(i);
+            OLOGR(info, req) << "  [" << i + 1 << "/" << ddsParams.size() << "]: " << ddsParams.at(i);
         }
 
         for (unsigned int i = 0; i < ddsParams.size(); ++i) {
-            OLOG(info, common) << "Submitting [" << i + 1 << "/" << ddsParams.size() << "]: " << ddsParams.at(i);
-            if (submitDDSAgents(req, session, error, ddsParams.at(i))) {
+            OLOGR(info, req) << "Submitting [" << i + 1 << "/" << ddsParams.size() << "]: " << ddsParams.at(i);
+            if (submitDDSAgents(req, session, ddsParams.at(i))) {
                 expectedNumSlots += ddsParams.at(i).mNumAgents * ddsParams.at(i).mNumSlots;
             } else {
-                OLOG(error, common) << "Submission failed";
+                OLOGR(error, req) << "Submission failed";
                 break;
             }
         }
-        if (!error.mCode) {
-            OLOG(info, common) << "Waiting for " << expectedNumSlots << " slots...";
-            if (waitForNumActiveSlots(req, session, error, expectedNumSlots)) {
+        if (!req.mError.mCode) {
+            OLOGR(info, req) << "Waiting for " << expectedNumSlots << " slots...";
+            if (waitForNumActiveSlots(req, session, req.mError, expectedNumSlots)) {
                 session.mTotalSlots = expectedNumSlots;
-                OLOG(info, common) << "Done waiting for " << expectedNumSlots << " slots.";
+                OLOGR(info, req) << "Done waiting for " << expectedNumSlots << " slots.";
             }
         }
     }
@@ -133,13 +129,13 @@ unordered_set<string> Controller::submit(const R& req, const CommonParams& commo
 
         try {
             auto agentInfo = getAgentInfo(req, session);
-            OLOG(info, common) << "Launched " << agentInfo.size() << " DDS agents:";
+            OLOGR(info, req) << "Launched " << agentInfo.size() << " DDS agents:";
             hosts.reserve(agentInfo.size());
             for (const auto& ai : agentInfo) {
                 agentCounts[ai.m_groupName]++;
                 session.mAgentSlots[ai.m_agentID] = ai.m_nSlots;
                 hosts.emplace(ai.m_host);
-                OLOG(info, common)
+                OLOGR(info, req)
                     << "  Agent ID: " << ai.m_agentID
                     // << ", pid: " << ai.m_agentPid
                     << "; host: " << ai.m_host
@@ -152,21 +148,20 @@ unordered_set<string> Controller::submit(const R& req, const CommonParams& commo
                     // << " (idle: " << ai.m_nIdleSlots
                     // << ", executing: " << ai.m_nExecutingSlots << ").";
             }
-            OLOG(info, common) << "Launched " << agentCounts.size() << " DDS agent groups:";
+            OLOGR(info, req) << "Launched " << agentCounts.size() << " DDS agent groups:";
             for (const auto& [groupName, count] : agentCounts) {
-                OLOG(info, common) << "  " << std::quoted(groupName) << ": " << count << " agents";
+                OLOGR(info, req) << "  " << std::quoted(groupName) << ": " << count << " agents";
             }
         } catch (Error& e) {
-            error = e;
-            OLOG(error, common) << "Failed getting agent info: " << e;
+            req.mError = e;
+            OLOGR(error, req) << "Failed getting agent info: " << e;
         } catch (const exception& e) {
-            fillAndLogError(common, error, ErrorCode::DDSCommanderInfoFailed, toString("Failed getting agent info: ", e.what()));
+            fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSCommanderInfoFailed, toString("Failed getting agent info: ", e.what()));
         }
 
-        if (error.mCode) {
-            attemptSubmitRecovery(req, session, error, ddsParams, agentCounts);
+        if (req.mError.mCode) {
+            attemptSubmitRecovery(req, session, req.mError, ddsParams, agentCounts);
         }
-
     }
     return hosts;
 }
@@ -261,42 +256,39 @@ void Controller::updateTopology(const CommonParams& common, Session& session)
 
 RequestResult Controller::exec(const ActivateRequest& req, Partition& partition)
 {
-    Error error;
-
     if (!partition.mSession->mDDSSession.IsRunning()) {
-        fillAndLogError(req.mCommon, error, ErrorCode::DDSActivateTopologyFailed, "DDS session is not running. Use Init or Run to start the session.");
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSActivateTopologyFailed, "DDS session is not running. Use Init or Run to start the session.");
     }
 
     try {
         partition.mSession->mTopoFilePath = topoFilepath(req, req.mTopoFile, req.mTopoContent, req.mTopoScript);
         extractRequirements(req.mCommon, *(partition.mSession));
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         OLOGR(error, req) << "Activate failed: " << e;
     } catch (exception& e) {
-        fillAndLogFatalError(req.mCommon, error, ErrorCode::TopologyFailed, e.what());
+        fillAndLogFatalError(req.mCommon, req.mError, ErrorCode::TopologyFailed, e.what());
     }
 
-    if (!error.mCode) {
-        activate(req, partition, error);
+    if (!req.mError.mCode) {
+        activate(req, partition);
     }
 
-    TopologyState topologyState(error.mCode ? AggregatedState::Undefined : AggregatedState::Idle);
-    return createRequestResult(req, getSessionIDStr(partition), error, "Activate done", std::move(topologyState), {});
+    TopologyState topologyState(req.mError.mCode ? AggregatedState::Undefined : AggregatedState::Idle);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Activate done", std::move(topologyState), {});
 }
 
 template<typename R>
-void Controller::activate(const R& req, Partition& partition, Error& error)
+void Controller::activate(const R& req, Partition& partition)
 {
-    activateDDSTopology(req, *(partition.mSession), error, dds::tools_api::STopologyRequest::request_t::EUpdateType::ACTIVATE)
-        && createDDSTopology(req.mCommon, *(partition.mSession), error)
-        && createTopology(req.mCommon, partition, error)
-        && waitForState(req, partition, error, "", DeviceState::Idle);
+    activateDDSTopology(req, *(partition.mSession), dds::tools_api::STopologyRequest::request_t::EUpdateType::ACTIVATE)
+        && createDDSTopology(req.mCommon, *(partition.mSession), req.mError)
+        && createTopology(req.mCommon, partition, req.mError)
+        && waitForState(req, partition, "", DeviceState::Idle);
 }
 
 RequestResult Controller::exec(const RunRequest& req, Partition& partition)
 {
-    Error error;
     std::unordered_set<std::string> hosts;
 
     if (!partition.mSession->mRunAttempted) {
@@ -304,157 +296,139 @@ RequestResult Controller::exec(const RunRequest& req, Partition& partition)
 
         // Create new DDS session
         // Shutdown DDS session if it is running already
-        shutdownDDSSession(req.mCommon, partition, error)
-            && createDDSSession(req.mCommon, *(partition.mSession), error);
+        shutdownDDSSession(req.mCommon, partition, req.mError)
+            && createDDSSession(req.mCommon, *(partition.mSession), req.mError);
 
         updateRestore();
 
-        if (!error.mCode) {
+        if (!req.mError.mCode) {
             try {
                 partition.mSession->mTopoFilePath = topoFilepath(req, req.mTopoFile, req.mTopoContent, req.mTopoScript);
                 extractRequirements(req.mCommon, *(partition.mSession));
             } catch (Error& e) {
-                error = e;
+                req.mError = e;
                 OLOGR(error, req) << "Topology creation failed: " << e;
             } catch (exception& e) {
-                fillAndLogFatalError(req.mCommon, error, ErrorCode::TopologyFailed, toString("Incorrect topology provided: ", e.what()));
+                fillAndLogFatalError(req.mCommon, req.mError, ErrorCode::TopologyFailed, toString("Incorrect topology provided: ", e.what()));
             }
 
-            if (!error.mCode) {
+            if (!req.mError.mCode) {
                 if (!partition.mSession->mDDSSession.IsRunning()) {
-                    fillAndLogError(req.mCommon, error, ErrorCode::DDSSubmitAgentsFailed, "DDS session is not running. Use Init or Run to start the session.");
+                    fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSSubmitAgentsFailed, "DDS session is not running. Use Init or Run to start the session.");
                 }
 
-                hosts = submit(req, req.mCommon, *(partition.mSession), error, req.mPlugin, req.mResources, req.mExtractTopoResources);
+                hosts = submit(req, *(partition.mSession), req.mExtractTopoResources);
 
                 if (!partition.mSession->mDDSSession.IsRunning()) {
-                    fillAndLogError(req.mCommon, error, ErrorCode::DDSActivateTopologyFailed, "DDS session is not running. Use Init or Run to start the session.");
+                    fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSActivateTopologyFailed, "DDS session is not running. Use Init or Run to start the session.");
                 }
 
-                if (!error.mCode) {
-                    activate(req, partition, error);
+                if (!req.mError.mCode) {
+                    activate(req, partition);
                 }
             }
         }
     } else {
-        error = Error(MakeErrorCode(ErrorCode::RequestNotSupported), "Repeated Run request is not supported. Shutdown this partition to retry.");
+        req.mError = Error(MakeErrorCode(ErrorCode::RequestNotSupported), "Repeated Run request is not supported. Shutdown this partition to retry.");
     }
 
-    TopologyState topologyState(error.mCode ? AggregatedState::Undefined : AggregatedState::Idle);
-    return createRequestResult(req, getSessionIDStr(partition), error, "Run done", std::move(topologyState), hosts);
+    TopologyState topologyState(req.mError.mCode ? AggregatedState::Undefined : AggregatedState::Idle);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Run done", std::move(topologyState), hosts);
 }
 
 RequestResult Controller::exec(const UpdateRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState;
 
     try {
         partition.mSession->mTopoFilePath = topoFilepath(req, req.mTopoFile, req.mTopoContent, req.mTopoScript);
         extractRequirements(req.mCommon, *(partition.mSession));
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         OLOGR(error, req) << "Topology creation failed: " << e;
     } catch (exception& e) {
-        fillAndLogFatalError(req.mCommon, error, ErrorCode::TopologyFailed, toString("Incorrect topology provided: ", e.what()));
+        fillAndLogFatalError(req.mCommon, req.mError, ErrorCode::TopologyFailed, toString("Incorrect topology provided: ", e.what()));
     }
 
-    if (!error.mCode) {
-        changeStateReset(req, partition, error, "", topologyState)
+    if (!req.mError.mCode) {
+        changeStateReset(req, partition, "", topologyState)
             && resetTopology(partition)
-            && activateDDSTopology(req, *(partition.mSession), error, dds::tools_api::STopologyRequest::request_t::EUpdateType::UPDATE)
-            && createDDSTopology(req.mCommon, *(partition.mSession), error)
-            && createTopology(req.mCommon, partition, error)
-            && waitForState(req, partition, error, "", DeviceState::Idle)
-            && changeStateConfigure(req, partition, error, "", topologyState);
+            && activateDDSTopology(req, *(partition.mSession),  dds::tools_api::STopologyRequest::request_t::EUpdateType::UPDATE)
+            && createDDSTopology(req.mCommon, *(partition.mSession), req.mError)
+            && createTopology(req.mCommon, partition, req.mError)
+            && waitForState(req, partition, "", DeviceState::Idle)
+            && changeStateConfigure(req, partition, "", topologyState);
     }
-    return createRequestResult(req, getSessionIDStr(partition), error, "Update done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Update done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const ShutdownRequest& req, Partition& partition)
 {
-    Error error;
-
     // grab the session id before shutting down the session, to return it in the reply
     string ddsSessionId = to_string(partition.mSession->mDDSSession.getSessionID());
-    shutdownDDSSession(req.mCommon, partition, error);
+    shutdownDDSSession(req.mCommon, partition, req.mError);
 
     removePartition(req.mCommon);
     // partition& no longer valid from here on
     updateRestore();
 
-    return createRequestResult(req, ddsSessionId, error, "Shutdown done", TopologyState(), {});
+    return createRequestResult(req, ddsSessionId, req.mError, "Shutdown done", TopologyState(), {});
 }
 
 RequestResult Controller::exec(const SetPropertiesRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState;
-    setProperties(req, partition, error, req.mPath, req.mProperties, topologyState);
-    return createRequestResult(req, getSessionIDStr(partition), error, "SetProperties done", std::move(topologyState), {});
+    setProperties(req, partition, topologyState);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "SetProperties done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const GetStateRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
-    getState(req.mCommon, partition, error, req.mPath, topologyState);
-    return createRequestResult(req, getSessionIDStr(partition), error, "GetState done", std::move(topologyState), {});
+    getState(req, partition, topologyState);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "GetState done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const ConfigureRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
-    changeStateConfigure(req, partition, error, req.mPath, topologyState);
-    return createRequestResult(req, getSessionIDStr(partition), error, "Configure done", std::move(topologyState), {});
+    changeStateConfigure(req, partition, req.mPath, topologyState);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Configure done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const StartRequest& req, Partition& partition)
 {
-    Error error;
-
     // update run number
     partition.mSession->mLastRunNr.store(req.mCommon.mRunNr);
 
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
-    changeState(req, partition, error, req.mPath, TopoTransition::Run, topologyState);
-    return createRequestResult(req, getSessionIDStr(partition), error, "Start done", std::move(topologyState), {});
+    changeState(req, partition, req.mPath, TopoTransition::Run, topologyState);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Start done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const StopRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
-    changeState(req, partition, error, req.mPath, TopoTransition::Stop, topologyState);
+    changeState(req, partition, req.mPath, TopoTransition::Stop, topologyState);
 
     // reset the run number, which is valid only for the running state
     partition.mSession->mLastRunNr.store(0);
 
-    return createRequestResult(req, getSessionIDStr(partition), error, "Stop done", std::move(topologyState), {});
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Stop done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const ResetRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
-    changeStateReset(req, partition, error, req.mPath, topologyState);
-    return createRequestResult(req, getSessionIDStr(partition), error, "Reset done", std::move(topologyState), {});
+    changeStateReset(req, partition, req.mPath, topologyState);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Reset done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const TerminateRequest& req, Partition& partition)
 {
-    Error error;
-
     TopologyState topologyState(AggregatedState::Undefined, req.mDetailed ? std::make_optional<DetailedState>() : std::nullopt);
-    changeState(req, partition, error, req.mPath, TopoTransition::End, topologyState);
-    return createRequestResult(req, getSessionIDStr(partition), error, "Terminate done", std::move(topologyState), {});
+    changeState(req, partition, req.mPath, TopoTransition::End, topologyState);
+    return createRequestResult(req, getSessionIDStr(partition), req.mError, "Terminate done", std::move(topologyState), {});
 }
 
 RequestResult Controller::exec(const StatusRequest& req)
@@ -614,7 +588,7 @@ bool Controller::shutdownDDSSession(const CommonParams& common, Partition& parti
     return true;
 }
 
-std::string Controller::getActiveDDSTopology(const InitializeRequest& req, Session& session, Error& error)
+std::string Controller::getActiveDDSTopology(const InitializeRequest& req, Session& session)
 {
     using namespace dds::tools_api;
     try {
@@ -624,21 +598,21 @@ std::string Controller::getActiveDDSTopology(const InitializeRequest& req, Sessi
                                                                     commanderInfo,
                                                                     requestTimeout<InitializeRequest>(req, "getActiveDDSTopology..syncSendRequest<SCommanderInfoRequest>"),
                                                                     &ss);
-        OLOG(info, req.mCommon) << ss.str();
-        OLOG(debug, req.mCommon) << "Commander info: " << commanderInfo;
+        OLOGR(info, req) << ss.str();
+        OLOGR(debug, req) << "Commander info: " << commanderInfo;
         return commanderInfo.m_activeTopologyPath;
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         OLOGR(error, req) << "Error getting DDS commander info: " << e;
         return "";
     } catch (exception& e) {
-        fillAndLogError(req.mCommon, error, ErrorCode::DDSCommanderInfoFailed, toString("Error getting DDS commander info: ", e.what()));
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSCommanderInfoFailed, toString("Error getting DDS commander info: ", e.what()));
         return "";
     }
 }
 
 template<typename R>
-bool Controller::submitDDSAgents(const R& req, Session& session, Error& error, const DDSSubmitParams& params)
+bool Controller::submitDDSAgents(const R& req, Session& session, const DDSSubmitParams& params)
 {
     bool success = true;
     using namespace dds::tools_api;
@@ -667,10 +641,10 @@ bool Controller::submitDDSAgents(const R& req, Session& session, Error& error, c
 
     SSubmitRequest::ptr_t requestPtr = SSubmitRequest::makeRequest(requestInfo);
 
-    requestPtr->setMessageCallback([&success, &error, &req, this](const SMessageResponseData& msg) {
+    requestPtr->setMessageCallback([&success, &req, this](const SMessageResponseData& msg) {
         if (msg.m_severity == dds::intercom_api::EMsgSeverity::error) {
             success = false;
-            fillAndLogError(req.mCommon, error, ErrorCode::DDSSubmitAgentsFailed, toString("Submit error: ", msg.m_msg));
+            fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSSubmitAgentsFailed, toString("Submit error: ", msg.m_msg));
         } else {
             OLOG(info, req.mCommon) << "...Submit: " << msg.m_msg;
         }
@@ -690,12 +664,12 @@ bool Controller::submitDDSAgents(const R& req, Session& session, Error& error, c
 
         if (waitStatus == cv_status::timeout) {
             success = false;
-            fillAndLogError(req.mCommon, error, ErrorCode::RequestTimeout, "Timed out waiting for agent submission");
+            fillAndLogError(req.mCommon, req.mError, ErrorCode::RequestTimeout, "Timed out waiting for agent submission");
         } else {
             // OLOG(info, req.mCommon) << "Agent submission done successfully";
         }
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         OLOGR(error, req) << "Agent submission error: " << e;
         success = false;
     }
@@ -719,7 +693,7 @@ bool Controller::waitForNumActiveSlots(const R& req, Session& session, Error& er
 }
 
 template<typename R>
-bool Controller::activateDDSTopology(const R& req, Session& session, Error& error, dds::tools_api::STopologyRequest::request_t::EUpdateType updateType)
+bool Controller::activateDDSTopology(const R& req, Session& session, dds::tools_api::STopologyRequest::request_t::EUpdateType updateType)
 {
     bool success = true;
 
@@ -733,10 +707,10 @@ bool Controller::activateDDSTopology(const R& req, Session& session, Error& erro
 
     dds::tools_api::STopologyRequest::ptr_t requestPtr = dds::tools_api::STopologyRequest::makeRequest(topoInfo);
 
-    requestPtr->setMessageCallback([&success, &error, &req, this](const dds::tools_api::SMessageResponseData& msg) {
+    requestPtr->setMessageCallback([&success, &req, this](const dds::tools_api::SMessageResponseData& msg) {
         if (msg.m_severity == dds::intercom_api::EMsgSeverity::error) {
             success = false;
-            fillAndLogError(req.mCommon, error, ErrorCode::DDSActivateTopologyFailed, toString("DDS Activate error: ", msg.m_msg));
+            fillAndLogError(req.mCommon, req.mError, ErrorCode::DDSActivateTopologyFailed, toString("DDS Activate error: ", msg.m_msg));
         } else {
             // OLOG(debug, req.mCommon) << "DDS Activate Message: " << msg.m_msg;
         }
@@ -790,8 +764,8 @@ bool Controller::activateDDSTopology(const R& req, Session& session, Error& erro
 
         if (waitStatus == cv_status::timeout) {
             success = false;
-            fillAndLogError(req.mCommon, error, ErrorCode::RequestTimeout, "Timed out waiting for topology activation");
-            OLOGR(error, req) << error;
+            fillAndLogError(req.mCommon, req.mError, ErrorCode::RequestTimeout, "Timed out waiting for topology activation");
+            OLOGR(error, req) << req.mError;
         } else {
             // try {
             //     if (!session.mCollections.empty()) {
@@ -808,7 +782,7 @@ bool Controller::activateDDSTopology(const R& req, Session& session, Error& erro
             // }
         }
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         OLOGR(error, req) << "Error during topology activation: " << e;
         success = false;
     }
@@ -1059,10 +1033,10 @@ bool Controller::resetTopology(Partition& partition)
 }
 
 template<typename R>
-bool Controller::changeState(const R& req, Partition& partition, Error& error, const string& path, TopoTransition transition, TopologyState& topologyState)
+bool Controller::changeState(const R& req, Partition& partition, const string& path, TopoTransition transition, TopologyState& topologyState)
 {
     if (partition.mTopology == nullptr) {
-        fillAndLogError(req.mCommon, error, ErrorCode::FairMQChangeStateFailed, "FairMQ topology is not initialized");
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQChangeStateFailed, "FairMQ topology is not initialized");
         return false;
     }
 
@@ -1071,7 +1045,7 @@ bool Controller::changeState(const R& req, Partition& partition, Error& error, c
     auto it = gExpectedState.find(transition);
     DeviceState expState{ it != gExpectedState.end() ? it->second : DeviceState::Undefined };
     if (expState == DeviceState::Undefined) {
-        fillAndLogError(req.mCommon, error, ErrorCode::FairMQChangeStateFailed, toString("Unexpected FairMQ transition ", transition));
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQChangeStateFailed, toString("Unexpected FairMQ transition ", transition));
         return false;
     }
 
@@ -1085,10 +1059,10 @@ bool Controller::changeState(const R& req, Partition& partition, Error& error, c
             stateSummaryOnFailure(req.mCommon, *(partition.mSession), partition.mTopology->GetCurrentState(), expState);
             switch (static_cast<ErrorCode>(errorCode.value())) {
                 case ErrorCode::OperationTimeout:
-                    fillAndLogFatalError(req.mCommon, error, ErrorCode::RequestTimeout, toString("Timed out waiting for ", transition, " transition"));
+                    fillAndLogFatalError(req.mCommon, req.mError, ErrorCode::RequestTimeout, toString("Timed out waiting for ", transition, " transition"));
                     break;
                 default:
-                    fillAndLogFatalError(req.mCommon, error, ErrorCode::FairMQChangeStateFailed, toString("Change state failed: ", errorCode.message()));
+                    fillAndLogFatalError(req.mCommon, req.mError, ErrorCode::FairMQChangeStateFailed, toString("Change state failed: ", errorCode.message()));
                     break;
             }
         }
@@ -1104,12 +1078,12 @@ bool Controller::changeState(const R& req, Partition& partition, Error& error, c
 
         printStateStats(req.mCommon, topoState);
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         stateSummaryOnFailure(req.mCommon, *(partition.mSession), partition.mTopology->GetCurrentState(), expState);
         OLOG(fatal, req.mCommon) << "Change state failed: " << e;
     } catch (exception& e) {
         stateSummaryOnFailure(req.mCommon, *(partition.mSession), partition.mTopology->GetCurrentState(), expState);
-        fillAndLogFatalError(req.mCommon, error, ErrorCode::FairMQChangeStateFailed, toString("Change state failed: ", e.what()));
+        fillAndLogFatalError(req.mCommon, req.mError, ErrorCode::FairMQChangeStateFailed, toString("Change state failed: ", e.what()));
         success = false;
     }
 
@@ -1117,10 +1091,10 @@ bool Controller::changeState(const R& req, Partition& partition, Error& error, c
 }
 
 template<typename R>
-bool Controller::waitForState(const R& req, Partition& partition, Error& error, const string& path, DeviceState expState)
+bool Controller::waitForState(const R& req, Partition& partition, const string& path, DeviceState expState)
 {
     if (partition.mTopology == nullptr) {
-        fillAndLogError(req.mCommon, error, ErrorCode::FairMQWaitForStateFailed, "FairMQ topology is not initialized");
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQWaitForStateFailed, "FairMQ topology is not initialized");
         return false;
     }
 
@@ -1136,22 +1110,22 @@ bool Controller::waitForState(const R& req, Partition& partition, Error& error, 
             stateSummaryOnFailure(req.mCommon, *(partition.mSession), partition.mTopology->GetCurrentState(), expState);
             switch (static_cast<ErrorCode>(errorCode.value())) {
                 case ErrorCode::OperationTimeout:
-                    fillAndLogError(req.mCommon, error, ErrorCode::RequestTimeout, toString("Timed out waiting for ", expState, " state"));
+                    fillAndLogError(req.mCommon, req.mError, ErrorCode::RequestTimeout, toString("Timed out waiting for ", expState, " state"));
                     break;
                 default:
-                    fillAndLogError(req.mCommon, error, ErrorCode::FairMQWaitForStateFailed, toString("Failed waiting for ", expState, " state: ", errorCode.message()));
+                    fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQWaitForStateFailed, toString("Failed waiting for ", expState, " state: ", errorCode.message()));
                     break;
             }
         } else {
             OLOG(info, req.mCommon) << "Topology state is now " << expState;
         }
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         stateSummaryOnFailure(req.mCommon, *(partition.mSession), partition.mTopology->GetCurrentState(), expState);
         OLOG(fatal, req.mCommon) << "Wait for state failed: " << e;
     } catch (exception& e) {
         stateSummaryOnFailure(req.mCommon, *(partition.mSession), partition.mTopology->GetCurrentState(), expState);
-        fillAndLogError(req.mCommon, error, ErrorCode::FairMQChangeStateFailed, toString("Wait for state failed: ", e.what()));
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQChangeStateFailed, toString("Wait for state failed: ", e.what()));
         success = false;
     }
 
@@ -1159,23 +1133,23 @@ bool Controller::waitForState(const R& req, Partition& partition, Error& error, 
 }
 
 template<typename R>
-bool Controller::changeStateConfigure(const R& req, Partition& partition, Error& error, const string& path, TopologyState& topologyState)
+bool Controller::changeStateConfigure(const R& req, Partition& partition, const string& path, TopologyState& topologyState)
 {
-    return changeState(req, partition, error, path, TopoTransition::InitDevice,   topologyState)
-        && changeState(req, partition, error, path, TopoTransition::CompleteInit, topologyState)
-        && changeState(req, partition, error, path, TopoTransition::Bind,         topologyState)
-        && changeState(req, partition, error, path, TopoTransition::Connect,      topologyState)
-        && changeState(req, partition, error, path, TopoTransition::InitTask,     topologyState);
+    return changeState(req, partition, path, TopoTransition::InitDevice,   topologyState)
+        && changeState(req, partition, path, TopoTransition::CompleteInit, topologyState)
+        && changeState(req, partition, path, TopoTransition::Bind,         topologyState)
+        && changeState(req, partition, path, TopoTransition::Connect,      topologyState)
+        && changeState(req, partition, path, TopoTransition::InitTask,     topologyState);
 }
 
 template<typename R>
-bool Controller::changeStateReset(const R& req, Partition& partition, Error& error, const string& path, TopologyState& topologyState)
+bool Controller::changeStateReset(const R& req, Partition& partition, const string& path, TopologyState& topologyState)
 {
-    return changeState(req, partition, error, path, TopoTransition::ResetTask,   topologyState)
-        && changeState(req, partition, error, path, TopoTransition::ResetDevice, topologyState);
+    return changeState(req, partition, path, TopoTransition::ResetTask,   topologyState)
+        && changeState(req, partition, path, TopoTransition::ResetDevice, topologyState);
 }
 
-void Controller::getState(const CommonParams& common, Partition& partition, Error& error, const string& path, TopologyState& topologyState)
+void Controller::getState(const GetStateRequest& req, Partition& partition, TopologyState& topologyState)
 {
     if (partition.mTopology == nullptr) {
         topologyState.aggregated = AggregatedState::Undefined;
@@ -1185,26 +1159,26 @@ void Controller::getState(const CommonParams& common, Partition& partition, Erro
     auto const topoState = partition.mTopology->GetCurrentState();
 
     try {
-        topologyState.aggregated = aggregateStateForPath(partition.mSession->mDDSTopo.get(), topoState, path);
+        topologyState.aggregated = aggregateStateForPath(partition.mSession->mDDSTopo.get(), topoState, req.mPath);
     } catch (exception& e) {
-        fillAndLogError(common, error, ErrorCode::FairMQGetStateFailed, toString("Get state failed: ", e.what()));
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQGetStateFailed, toString("Get state failed: ", e.what()));
     }
     if (topologyState.detailed.has_value()) {
         partition.mSession->fillDetailedState(topoState, topologyState.detailed.value());
     }
 
-    printStateStats(common, topoState, true);
+    printStateStats(req.mCommon, topoState, true);
 }
 
-bool Controller::setProperties(const SetPropertiesRequest& req, Partition& partition, Error& error, const string& path, const SetPropertiesRequest::Props& props, TopologyState& topologyState)
+bool Controller::setProperties(const SetPropertiesRequest& req, Partition& partition, TopologyState& topologyState)
 {
     if (partition.mTopology == nullptr) {
-        fillAndLogError(req.mCommon, error, ErrorCode::FairMQSetPropertiesFailed, "FairMQ topology is not initialized");
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQSetPropertiesFailed, "FairMQ topology is not initialized");
         return false;
     }
 
     try {
-        auto [errorCode, failedDevices] = partition.mTopology->SetProperties(props, path, requestTimeout<SetPropertiesRequest>(req, "SetProperties"));
+        auto [errorCode, failedDevices] = partition.mTopology->SetProperties(req.mProperties, req.mPath, requestTimeout<SetPropertiesRequest>(req, "SetProperties"));
         if (!errorCode) {
             OLOG(info, req.mCommon) << "Set property finished successfully";
         } else {
@@ -1216,23 +1190,23 @@ bool Controller::setProperties(const SetPropertiesRequest& req, Partition& parti
             }
             switch (static_cast<ErrorCode>(errorCode.value())) {
                 case ErrorCode::OperationTimeout:
-                    fillAndLogError(req.mCommon, error, ErrorCode::RequestTimeout, toString("Timed out waiting for set property: ", errorCode.message()));
+                    fillAndLogError(req.mCommon, req.mError, ErrorCode::RequestTimeout, toString("Timed out waiting for set property: ", errorCode.message()));
                     break;
                 default:
-                    fillAndLogError(req.mCommon, error, ErrorCode::FairMQSetPropertiesFailed, toString("Set property error message: ", errorCode.message()));
+                    fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQSetPropertiesFailed, toString("Set property error message: ", errorCode.message()));
                     break;
             }
         }
 
         topologyState.aggregated = AggregateState(partition.mTopology->GetCurrentState());
     } catch (Error& e) {
-        error = e;
+        req.mError = e;
         OLOGR(error, req) << "Set properties failed: " << e;
     } catch (exception& e) {
-        fillAndLogError(req.mCommon, error, ErrorCode::FairMQSetPropertiesFailed, toString("Set properties failed: ", e.what()));
+        fillAndLogError(req.mCommon, req.mError, ErrorCode::FairMQSetPropertiesFailed, toString("Set properties failed: ", e.what()));
     }
 
-    return !error.mCode;
+    return !req.mError.mCode;
 }
 
 AggregatedState Controller::aggregateStateForPath(const dds::topology_api::CTopology* ddsTopo, const TopoState& topoState, const string& path)
