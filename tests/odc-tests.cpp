@@ -12,9 +12,15 @@
 #include <odc/AsioBase.h>
 #include <odc/Topology.h>
 
+#include <odc/Controller.h>
+#include <odc/Params.h>
+
 #include <array>
+#include <chrono>
 #include <boost/asio.hpp>
 #include <thread>
+
+using namespace std::literals::chrono_literals;
 
 using namespace boost::unit_test;
 using namespace odc::core;
@@ -736,5 +742,72 @@ BOOST_AUTO_TEST_CASE(change_state_full_lifecycle_concurrent)
 }
 
 BOOST_AUTO_TEST_SUITE_END() // multiple_topologies
+
+BOOST_AUTO_TEST_SUITE(request_timeouts)
+
+BOOST_AUTO_TEST_CASE(BeforeBothExpire)
+{
+    CommonParams common{"test_0", 1234, 0};
+    std::chrono::seconds result;
+    BOOST_CHECK_NO_THROW(result = odc::core::requestTimeout(common, "test_op", false, 10s, 5s));
+    BOOST_CHECK_GT(result.count(), 0);
+    BOOST_CHECK_LE(result.count(), 5);  // Should be less than or equal to (10 - 5) seconds
+}
+
+BOOST_AUTO_TEST_CASE(BeforeBothExpireWithExtraTrue)
+{
+    CommonParams common{"test_1", 1234, 0};
+    std::chrono::seconds result;
+    BOOST_CHECK_NO_THROW(result = odc::core::requestTimeout(common, "test_op", true, 10s, 5s));
+    BOOST_CHECK_GT(result.count(), 5);  // Should be greater than 5 seconds
+    BOOST_CHECK_LE(result.count(), 10);  // Should be less than or equal to 10 seconds
+}
+
+BOOST_AUTO_TEST_CASE(AfterMainTimeoutExpires)
+{
+    CommonParams common{"test_2", 1234, 0};
+    std::this_thread::sleep_for(11s);  // Sleep to exceed the main timeout
+    BOOST_CHECK_THROW(odc::core::requestTimeout(common, "test_op", false, 10s, 5s), odc::core::Error);
+}
+
+BOOST_AUTO_TEST_CASE(AfterExtraTimeoutExpires)
+{
+    CommonParams common{"test_3", 1234, 0};
+    std::this_thread::sleep_for(6s);  // Sleep to exceed the extra timeout but not the main timeout
+    std::chrono::seconds result;
+    BOOST_CHECK_NO_THROW(result = odc::core::requestTimeout(common, "test_op", false, 10s, 5s));
+    BOOST_CHECK_THROW(odc::core::requestTimeout(common, "test_op", true, 10s, 5s), Error);
+}
+
+BOOST_AUTO_TEST_CASE(WithCustomTimeout)
+{
+    CommonParams common{"test_4", 1234, 15};  // Using custom timeout of 15 seconds
+    std::chrono::seconds result;
+    BOOST_CHECK_NO_THROW(result = odc::core::requestTimeout(common, "test_op", false, 10s, 5s));
+    BOOST_CHECK_GT(result.count(), 5);  // Should be greater than 5 seconds
+    BOOST_CHECK_LE(result.count(), 15);  // Should be less than or equal to 15 seconds
+}
+
+BOOST_AUTO_TEST_CASE(WithZeroExtraTimeout)
+{
+    CommonParams common{"test_5", 1234, 0};
+    std::chrono::seconds result;
+    BOOST_CHECK_NO_THROW(result = odc::core::requestTimeout(common, "test_op", false, 10s, 0s));
+    BOOST_CHECK_GT(result.count(), 0);
+    BOOST_CHECK_LE(result.count(), 10);  // Should be less than or equal to 10 seconds
+}
+
+BOOST_AUTO_TEST_CASE(NearTimeoutBoundary)
+{
+    CommonParams common{"test_6", 1234, 0};
+    std::this_thread::sleep_for(9900ms);  // Sleep to just before the timeout
+    std::chrono::seconds result;
+    BOOST_CHECK_NO_THROW(result = odc::core::requestTimeout(common, "test_op", true, 10s, 5s));
+    BOOST_CHECK_LT(result.count(), 1);  // Should be less than 1 second
+    std::this_thread::sleep_for(200ms);  // Sleep to just after the timeout
+    BOOST_CHECK_THROW(odc::core::requestTimeout(common, "test_op", true, 10s, 5s), Error);
+}
+
+BOOST_AUTO_TEST_SUITE_END() // timeouts
 
 int main(int argc, char* argv[]) { return boost::unit_test::unit_test_main(init_unit_test, argc, argv); }
