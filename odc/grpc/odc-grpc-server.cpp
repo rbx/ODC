@@ -32,6 +32,7 @@ int main(int argc, char** argv)
 {
     try {
         size_t timeout;
+        size_t extraTimeout;
         string host;
         Logger::Config logConfig;
         PluginManager::PluginMap plugins;
@@ -47,6 +48,7 @@ int main(int argc, char** argv)
             ("version,v", "Print version")
             ("sync", bpo::bool_switch()->default_value(false), "[DEPRECATED] Use sync implementation of the gRPC server")
             ("timeout", bpo::value<size_t>(&timeout)->default_value(30), "Timeout of requests in sec")
+            ("extra-timeout", bpo::value<size_t>(&timeout)->default_value(0), "Extra timeout for operations that follow long-running ones, to give them a better chance of completion. Subtracted from the provided total request timeout.")
             ("host", bpo::value<std::string>(&host)->default_value("localhost:50051"), "Server address")
             ("rp", bpo::value<std::vector<std::string>>()->multitoken(), "Register resource plugins ( name1:cmd1 name2:cmd2 )")
             ("zones", bpo::value<vector<string>>(&zonesStr)->multitoken()->composing(), "Zones in <name>:<cfgFilePath>:<envFilePath> format")
@@ -89,6 +91,7 @@ int main(int argc, char** argv)
 
         odc::GrpcServer server;
         server.setTimeout(chrono::seconds(timeout));
+        server.setExtraTimeout(chrono::seconds(extraTimeout));
         server.setHistoryDir(historyDir);
         server.setZoneCfgs(zonesStr);
         server.setRMS(rms);

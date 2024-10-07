@@ -162,6 +162,13 @@ odc_add_boost_tests(SUITE odc
   topology/set_properties_mixed
   topology/underlying_session_terminated
   topology/wait_for_state_full_device_lifecycle
+  request_timeouts/BeforeBothExpire
+  request_timeouts/BeforeBothExpireWithExtraTrue
+  request_timeouts/AfterMainTimeoutExpires
+  request_timeouts/AfterExtraTimeoutExpires
+  request_timeouts/WithCustomTimeout
+  request_timeouts/WithZeroExtraTimeout
+  request_timeouts/NearTimeoutBoundary
 
   DEPS ODC::odc
 

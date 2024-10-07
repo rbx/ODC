@@ -87,7 +87,7 @@ unordered_set<string> Controller::submit(const CommonParams& common, Session& se
             if (extractResources) {
                 ddsParams = mSubmit.makeParams(mRMS, mZoneCfgs, session.mAgentGroupInfo);
             } else {
-                ddsParams = mSubmit.makeParams(plugin, res, common, session.mZoneInfo, session.mNinfo, requestTimeout(common, "submit::MakeParams"));
+                ddsParams = mSubmit.makeParams(plugin, res, common, session.mZoneInfo, session.mNinfo, requestTimeout(common, "submit::MakeParams", false));
             }
         } catch (Error& e) {
             error = e;
@@ -133,7 +133,7 @@ unordered_set<string> Controller::submit(const CommonParams& common, Session& se
         }
 
         try {
-            auto agentInfo = getAgentInfo(common, session);
+            auto agentInfo = getAgentInfo(common, session, false);
             OLOG(info, common) << "Launched " << agentInfo.size() << " DDS agents:";
             hosts.reserve(agentInfo.size());
             for (const auto& ai : agentInfo) {
@@ -188,12 +188,12 @@ void Controller::attemptSubmitRecovery(const CommonParams& common,
             if (requestedCount != actualCount) {
                 // fail recovery if insufficient agents, and no nMin is defined
                 if (minCount == 0) {
-                    fillAndLogError(common, error, ErrorCode::DDSSubmitAgentsFailed, toString("Number of agents (", actualCount, ") for group ", p.mAgentGroup, " is less than requested (", requestedCount, "), " , "and no nMin is defined"));
+                    fillAndLogError(common, error, ErrorCode::DDSSubmitAgentsFailed, toString("Number of agents (", actualCount, ") for group ", p.mAgentGroup, " is less than requested (", requestedCount, "), ", "and no nMin is defined"));
                     return;
                 }
                 // fail recovery if insufficient agents, and actual count is less than nMin
                 if (actualCount < minCount) {
-                    fillAndLogError(common, error, ErrorCode::DDSSubmitAgentsFailed, toString("Number of agents (", actualCount, ") for group ", p.mAgentGroup, " is less than requested (", requestedCount, "), " , "and nMin (", minCount, ") is not satisfied"));
+                    fillAndLogError(common, error, ErrorCode::DDSSubmitAgentsFailed, toString("Number of agents (", actualCount, ") for group ", p.mAgentGroup, " is less than requested (", requestedCount, "), ", "and nMin (", minCount, ") is not satisfied"));
                     return;
                 }
                 OLOG(info, common) << "Number of agents (" << actualCount << ") for group " << p.mAgentGroup << " is less than requested (" << requestedCount << "), " << "but nMin (" << minCount << ") is satisfied";
@@ -201,7 +201,7 @@ void Controller::attemptSubmitRecovery(const CommonParams& common,
         }
         if (!error.mCode) {
             try {
-                session.mTotalSlots = getNumSlots(common, session);
+                session.mTotalSlots = getNumSlots(common, session, false);
                 for (auto& ni : session.mNinfo) {
                     auto it = find_if(agentCounts.cbegin(), agentCounts.cend(), [&](const auto& ac) {
                         return ac.first == ni.second.agentGroup;
@@ -291,7 +291,7 @@ void Controller::activate(const CommonParams& common, Partition& partition, Erro
     activateDDSTopology(common, *(partition.mSession), error, dds::tools_api::STopologyRequest::request_t::EUpdateType::ACTIVATE)
         && createDDSTopology(common, *(partition.mSession), error)
         && createTopology(common, partition, error)
-        && waitForState(common, partition, error, "", DeviceState::Idle);
+        && waitForState(common, partition, error, "", DeviceState::Idle, true);
 }
 
 RequestResult Controller::execRun(const CommonParams& common, const RunParams& params)
@@ -368,7 +368,7 @@ RequestResult Controller::execUpdate(const CommonParams& common, const UpdatePar
             && activateDDSTopology(common, *(partition.mSession), error, dds::tools_api::STopologyRequest::request_t::EUpdateType::UPDATE)
             && createDDSTopology(common, *(partition.mSession), error)
             && createTopology(common, partition, error)
-            && waitForState(common, partition, error, "", DeviceState::Idle)
+            && waitForState(common, partition, error, "", DeviceState::Idle, false)
             && changeStateConfigure(common, partition, error, "", topologyState);
     }
     return createRequestResult(common, *(partition.mSession), error, "Update done", std::move(topologyState), {});
@@ -398,7 +398,7 @@ RequestResult Controller::execSetProperties(const CommonParams& common, const Se
     auto& partition = acquirePartition(common);
 
     TopologyState topologyState;
-    setProperties(common, partition, error, params.mPath, params.mProperties, topologyState);
+    setProperties(common, partition, error, params.mPath, params.mProperties, topologyState, false);
     return createRequestResult(common, *(partition.mSession), error, "SetProperties done", std::move(topologyState), {});
 }
 
@@ -640,7 +640,7 @@ std::string Controller::getActiveDDSTopology(const CommonParams& common, Session
         stringstream ss;
         session.mDDSSession.syncSendRequest<SCommanderInfoRequest>(SCommanderInfoRequest::request_t(),
                                                                     commanderInfo,
-                                                                    requestTimeout(common, "getActiveDDSTopology..syncSendRequest<SCommanderInfoRequest>"),
+                                                                    requestTimeout(common, "getActiveDDSTopology..syncSendRequest<SCommanderInfoRequest>", false),
                                                                     &ss);
         OLOG(info, common) << ss.str();
         OLOG(debug, common) << "Commander info: " << commanderInfo;
@@ -709,7 +709,7 @@ bool Controller::submitDDSAgents(const CommonParams& common, Session& session, E
 
     try {
         unique_lock<mutex> lock(mtx);
-        cv.wait_for(lock, requestTimeout(common, "wait_for lock in submitDDSAgents"), [&done]{ return done; });
+        cv.wait_for(lock, requestTimeout(common, "wait_for lock in submitDDSAgents", false), [&done]{ return done; });
 
         if (!done) {
             success = false;
@@ -730,7 +730,7 @@ bool Controller::submitDDSAgents(const CommonParams& common, Session& session, E
 bool Controller::waitForNumActiveSlots(const CommonParams& common, Session& session, Error& error, size_t numSlots)
 {
     try {
-        session.mDDSSession.waitForNumSlots<dds::tools_api::CSession::EAgentState::active>(numSlots, requestTimeout(common, "waitForNumActiveSlots..waitForNumSlots<dds::tools_api::CSession::EAgentState::active>"));
+        session.mDDSSession.waitForNumSlots<dds::tools_api::CSession::EAgentState::active>(numSlots, requestTimeout(common, "waitForNumActiveSlots..waitForNumSlots<dds::tools_api::CSession::EAgentState::active>", false));
     } catch (Error& e) {
         error = e;
         OLOG(error, common) << "Error while waiting for DDS slots: " << e;
@@ -816,7 +816,7 @@ bool Controller::activateDDSTopology(const CommonParams& common, Session& sessio
 
     try {
         unique_lock<mutex> lock(mtx);
-        cv.wait_for(lock, requestTimeout(common, "wait_for lock in activateDDSTopology"), [&done]{ return done; });
+        cv.wait_for(lock, requestTimeout(common, "wait_for lock in activateDDSTopology", true), [&done]{ return done; });
 
         if (!done) {
             success = false;
@@ -825,7 +825,7 @@ bool Controller::activateDDSTopology(const CommonParams& common, Session& sessio
 
             requestPtr->unsubscribeAll();
 
-            auto agentInfo = getAgentInfo(common, session);
+            auto agentInfo = getAgentInfo(common, session, false);
             OLOG(info, common) << agentInfo.size() << " DDS agents active:";
             for (const auto& ai : agentInfo) {
                 OLOG(info, common)
@@ -1135,7 +1135,7 @@ bool Controller::changeState(const CommonParams& common, Partition& partition, E
     bool success = true;
 
     try {
-        auto [errorCode, topoState] = partition.mTopology->ChangeState(transition, path, requestTimeout(common, toString("ChangeState(", transition, ")")));
+        auto [errorCode, topoState] = partition.mTopology->ChangeState(transition, path, requestTimeout(common, toString("ChangeState(", transition, ")"), false));
 
         success = !errorCode;
         if (!success) {
@@ -1173,7 +1173,7 @@ bool Controller::changeState(const CommonParams& common, Partition& partition, E
     return success;
 }
 
-bool Controller::waitForState(const CommonParams& common, Partition& partition, Error& error, const string& path, DeviceState expState)
+bool Controller::waitForState(const CommonParams& common, Partition& partition, Error& error, const string& path, DeviceState expState, bool extra)
 {
     if (partition.mTopology == nullptr) {
         fillAndLogError(common, error, ErrorCode::FairMQWaitForStateFailed, "FairMQ topology is not initialized");
@@ -1185,7 +1185,7 @@ bool Controller::waitForState(const CommonParams& common, Partition& partition, 
     bool success = false;
 
     try {
-        auto [errorCode, failedDevices] = partition.mTopology->WaitForState(DeviceState::Undefined, expState, path, requestTimeout(common, toString("WaitForState(", expState, ")")));
+        auto [errorCode, failedDevices] = partition.mTopology->WaitForState(DeviceState::Undefined, expState, path, requestTimeout(common, toString("WaitForState(", expState, ")"), extra));
 
         success = !errorCode;
         if (!success) {
@@ -1250,7 +1250,7 @@ void Controller::getState(const CommonParams& common, Partition& partition, Erro
     printStateStats(common, topoState, true);
 }
 
-bool Controller::setProperties(const CommonParams& common, Partition& partition, Error& error, const string& path, const SetPropertiesParams::Props& props, TopologyState& topologyState)
+bool Controller::setProperties(const CommonParams& common, Partition& partition, Error& error, const string& path, const SetPropertiesParams::Props& props, TopologyState& topologyState, bool extra)
 {
     if (partition.mTopology == nullptr) {
         fillAndLogError(common, error, ErrorCode::FairMQSetPropertiesFailed, "FairMQ topology is not initialized");
@@ -1258,7 +1258,7 @@ bool Controller::setProperties(const CommonParams& common, Partition& partition,
     }
 
     try {
-        auto [errorCode, failedDevices] = partition.mTopology->SetProperties(props, path, requestTimeout(common, "SetProperties"));
+        auto [errorCode, failedDevices] = partition.mTopology->SetProperties(props, path, requestTimeout(common, "SetProperties", extra));
         if (!errorCode) {
             OLOG(info, common) << "Set property finished successfully";
         } else {
@@ -1462,51 +1462,7 @@ void Controller::stateSummaryOnFailure(const CommonParams& common, Session& sess
     }
 }
 
-void Controller::ShutdownDDSAgent(const CommonParams& common, Session& session, uint64_t agentID)
-{
-    try {
-        size_t currentSlotCount = session.mTotalSlots;
-        size_t numSlotsToRemove = session.mAgentSlots.at(agentID);
-        size_t expectedNumSlots = session.mTotalSlots - numSlotsToRemove;
-        OLOG(info, common) << "Current number of slots: " << session.mTotalSlots << ", expecting to reduce to " << expectedNumSlots;
-
-        using namespace dds::tools_api;
-        OLOG(info, common) << "Sending shutdown signal to agent " << agentID;;
-        SAgentCommandRequest::request_t agentCmd;
-        agentCmd.m_commandType = SAgentCommandRequestData::EAgentCommandType::shutDownByID;
-        agentCmd.m_arg1 = agentID;
-        session.mDDSSession.syncSendRequest<SAgentCommandRequest>(agentCmd, requestTimeout(common, "ShutdownDDSAgent..syncSendRequest<SAgentCommandRequest>"));
-
-        // TODO: notification on agent shutdown in development in DDS
-        currentSlotCount = getNumSlots(common, session);
-        OLOG(info, common) << "Current number of slots: " << currentSlotCount;
-
-        if (currentSlotCount != expectedNumSlots) {
-            int64_t secondsLeft = requestTimeout(common, "ShutdownDDSAgent..measure remaining time").count();
-            if (secondsLeft > 0) {
-                int64_t maxAttempts = (secondsLeft * 1000) / 50;
-                while (currentSlotCount != expectedNumSlots && maxAttempts > 0) {
-                    this_thread::sleep_for(chrono::milliseconds(50));
-                    currentSlotCount = getNumSlots(common, session);
-                    // OLOG(info, common) << "Current number of slots: " << currentSlotCount;
-                    --maxAttempts;
-                }
-            }
-        }
-        if (currentSlotCount != expectedNumSlots) {
-            OLOG(warning, common) << "Could not reduce the number of slots to " << expectedNumSlots << ", current count is: " << currentSlotCount;
-        } else {
-            OLOG(info, common) << "Successfully reduced number of slots to " << currentSlotCount;
-        }
-        session.mTotalSlots = currentSlotCount;
-    } catch (Error& e) {
-        OLOG(error, common) << "Agent Shutdown failed: " << e;
-    } catch (exception& e) {
-        OLOG(error, common) << "Failed updating nubmer of slots: " << e.what();
-    }
-}
-
-dds::tools_api::SAgentInfoRequest::responseVector_t Controller::getAgentInfo(const CommonParams& common, Session& session) const
+dds::tools_api::SAgentInfoRequest::responseVector_t Controller::getAgentInfo(const CommonParams& common, Session& session, bool extra) const
 {
     using namespace dds::tools_api;
     SAgentInfoRequest::responseVector_t agentInfo;
@@ -1541,7 +1497,7 @@ dds::tools_api::SAgentInfoRequest::responseVector_t Controller::getAgentInfo(con
 
     try {
         unique_lock<mutex> lock(mtx);
-        cv.wait_for(lock, requestTimeout(common, "wait_for lock in getAgentInfo"), [&done]{ return done; });
+        cv.wait_for(lock, requestTimeout(common, "wait_for lock in getAgentInfo", extra), [&done]{ return done; });
 
         if (!done) {
             OLOG(error, common) << "Timed out waiting for DDS agent info";
@@ -1558,11 +1514,11 @@ dds::tools_api::SAgentInfoRequest::responseVector_t Controller::getAgentInfo(con
     return agentInfo;
 }
 
-uint32_t Controller::getNumSlots(const CommonParams& common, Session& session) const
+uint32_t Controller::getNumSlots(const CommonParams& common, Session& session, bool extra) const
 {
     using namespace dds::tools_api;
     SAgentCountRequest::response_t agentCountInfo;
-    session.mDDSSession.syncSendRequest<SAgentCountRequest>(SAgentCountRequest::request_t(), agentCountInfo, requestTimeout(common, "getNumSlots..syncSendRequest<SAgentCountRequest>"));
+    session.mDDSSession.syncSendRequest<SAgentCountRequest>(SAgentCountRequest::request_t(), agentCountInfo, requestTimeout(common, "getNumSlots..syncSendRequest<SAgentCountRequest>", extra));
     return agentCountInfo.m_activeSlotsCount;
 }
 
@@ -1586,7 +1542,7 @@ string Controller::topoFilepath(const CommonParams& common, const string& topolo
         OLOG(info, common) << "Executing topology generation script: " << topologyScript;
         std::vector<std::pair<std::string, std::string>> extraEnv;
         extraEnv.emplace_back(std::make_pair("ODC_TOPO_GEN_CMD", topologyScript));
-        execute(topologyScript, requestTimeout(common, "topoFilepath..execute"), &out, &err, &exitCode, extraEnv);
+        execute(topologyScript, requestTimeout(common, "topoFilepath..execute", false), &out, &err, &exitCode, extraEnv);
 
         const size_t shortSize = 75;
         string shortSuffix;
