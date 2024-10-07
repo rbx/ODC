@@ -37,6 +37,26 @@ struct Partition
     std::unique_ptr<Topology> mTopology = nullptr;
 };
 
+// returns time remaining for a request
+inline std::chrono::seconds requestTimeout(const CommonParams& common, const std::string& op, bool extra, std::chrono::seconds timeout, std::chrono::seconds extraTimeout)
+{
+    std::chrono::seconds configuredTimeoutS = (common.mTimeout == 0 ? timeout : std::chrono::seconds(common.mTimeout));
+    std::chrono::milliseconds configuredTimeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(configuredTimeoutS);
+    // subtract time elapsed since the beginning of the request
+    std::chrono::milliseconds realTimeoutMs = configuredTimeoutMs - common.mTimer.duration();
+    // subtract the time reserved for subsequent actions
+    if (!extra && extraTimeout > std::chrono::seconds(0)) {
+        realTimeoutMs = realTimeoutMs - std::chrono::duration_cast<std::chrono::milliseconds>(extraTimeout);
+    }
+    OLOG(debug, common) << op << ": configured request timeout: " << configuredTimeoutMs.count() << "ms "
+        << (common.mTimeout == 0 ? "(controller default)" : "(request parameter)")
+        << ", remaining time: " << realTimeoutMs.count() << "ms, reserved (" << extraTimeout.count() << "s)";
+    if (realTimeoutMs.count() < 0) {
+        throw Error(MakeErrorCode(ErrorCode::RequestTimeout), toString("Request timeout. Remaining time is: ", realTimeoutMs.count(), "ms"));
+    }
+    return std::chrono::duration_cast<std::chrono::seconds>(realTimeoutMs);
+}
+
 class Controller
 {
   public:
@@ -50,6 +70,10 @@ class Controller
     /// \brief Set timeout of requests
     /// \param [in] timeout Timeout in seconds
     void setTimeout(const std::chrono::seconds& timeout) { mTimeout = timeout; }
+
+    /// \brief Set extra timeout of requests. Used for operations that follow long-running ones, to give them a better chance of completion. Subtracted from the provided total request timeout.
+    /// \param [in] timeout Timeout in seconds
+    void setExtraTimeout(const std::chrono::seconds& extraTimeout) { mExtraTimeout = extraTimeout; }
 
     /// \brief Register resource plugins
     /// \param [in] pluginMap Map of plugin name to path
@@ -115,6 +139,7 @@ class Controller
     std::map<std::string, Partition> mPartitions; ///< Map of partition ID to Partition object
     std::mutex mPartitionMtx;                     ///< Mutex for the partition map
     std::chrono::seconds mTimeout{ 30 };          ///< Request timeout in sec
+    std::chrono::seconds mExtraTimeout{ 10 };     ///< Extra request timeout in sec
     DDSSubmit mSubmit;                            ///< ODC to DDS submit resource converter
     std::string mRestoreId;                       ///< Restore ID
     std::string mRestoreDir;                      ///< Restore file directory
@@ -135,7 +160,6 @@ class Controller
 
     bool submitDDSAgents(      const CommonParams& common, Session& session, Error& error, const DDSSubmitParams& params);
     bool waitForNumActiveSlots(const CommonParams& common, Session& session, Error& error, size_t numSlots);
-    void ShutdownDDSAgent(     const CommonParams& common, Session& session, uint64_t agentID);
 
     bool activateDDSTopology(const CommonParams& common, Session& session, Error& error, dds::tools_api::STopologyRequest::request_t::EUpdateType updateType);
     bool createDDSTopology(  const CommonParams& common, Session& session, Error& error);
@@ -146,8 +170,8 @@ class Controller
     bool changeState(         const CommonParams& common, Partition& partition, Error& error, const std::string& path, TopoTransition transition, TopologyState& topologyState);
     bool changeStateConfigure(const CommonParams& common, Partition& partition, Error& error, const std::string& path, TopologyState& topologyState);
     bool changeStateReset(    const CommonParams& common, Partition& partition, Error& error, const std::string& path, TopologyState& topologyState);
-    bool waitForState(        const CommonParams& common, Partition& partition, Error& error, const std::string& path, DeviceState expState);
-    bool setProperties(       const CommonParams& common, Partition& partition, Error& error, const std::string& path, const SetPropertiesParams::Props& props, TopologyState& topologyState);
+    bool waitForState(        const CommonParams& common, Partition& partition, Error& error, const std::string& path, DeviceState expState, bool extra);
+    bool setProperties(       const CommonParams& common, Partition& partition, Error& error, const std::string& path, const SetPropertiesParams::Props& props, TopologyState& topologyState, bool extra);
     void getState(            const CommonParams& common, Partition& partition, Error& error, const std::string& path, TopologyState& state);
 
     void fillAndLogError(               const CommonParams& common, Error& error, ErrorCode errorCode, const std::string& msg);
@@ -169,23 +193,13 @@ class Controller
 
     std::string topoFilepath(const CommonParams& common, const std::string& topologyFile, const std::string& topologyContent, const std::string& topologyScript);
 
-    std::chrono::seconds requestTimeout(const CommonParams& common, const std::string& op) const
+    std::chrono::seconds requestTimeout(const CommonParams& common, const std::string& op, bool extra) const
     {
-        std::chrono::seconds configuredTimeoutS = (common.mTimeout == 0 ? mTimeout : std::chrono::seconds(common.mTimeout));
-        std::chrono::milliseconds configuredTimeoutMs = std::chrono::duration_cast<std::chrono::milliseconds>(configuredTimeoutS);
-        // subtract time elapsed since the beginning of the request
-        std::chrono::milliseconds realTimeoutMs = configuredTimeoutMs - common.mTimer.duration();
-        OLOG(debug, common) << op << ": configured request timeout: " << configuredTimeoutMs.count() << "ms "
-            << (common.mTimeout == 0 ? "(controller default)" : "(request parameter)")
-            << ", remaining time: " << realTimeoutMs.count() << "ms";
-        if (realTimeoutMs.count() < 0) {
-            throw Error(MakeErrorCode(ErrorCode::RequestTimeout), toString("Request timeout. Remaining time is: ", realTimeoutMs.count(), "ms"));
-        }
-        return std::chrono::duration_cast<std::chrono::seconds>(realTimeoutMs);
+        return core::requestTimeout(common, op, extra, mTimeout, mExtraTimeout);
     }
 
-    uint32_t getNumSlots(const CommonParams& common, Session& session) const;
-    dds::tools_api::SAgentInfoRequest::responseVector_t getAgentInfo(const CommonParams& common, Session& session) const;
+    uint32_t getNumSlots(const CommonParams& common, Session& session, bool extra) const;
+    dds::tools_api::SAgentInfoRequest::responseVector_t getAgentInfo(const CommonParams& common, Session& session, bool extra) const;
 
     void printStateStats(const CommonParams& common, const TopoState& topoState, bool debugLog = false);
 };
