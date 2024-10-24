@@ -108,6 +108,9 @@ add_nmin_test(nmin_lt_n "" "Status code: ERROR")
 # nmin is less than n - recovery should be possible if conditions satisfied and failing processes are hanging before idle
 add_nmin_test(nmin_lt_n_hanging_before_idle "" "Status code: ERROR")
 
+# nmin is less than n - recovery not possible if all processes are hanging before idle
+add_nmin_test(nmin_lt_n_hanging_before_idle_failure "Status code: ERROR" "")
+
 # nmin is less than n - recovery should be possible if conditions satisfied and failing processes are hanging in init
 add_nmin_test(nmin_lt_n_hanging_in_init "" "Status code: ERROR")
 
@@ -159,6 +162,13 @@ odc_add_boost_tests(SUITE odc
   topology/set_properties_mixed
   topology/underlying_session_terminated
   topology/wait_for_state_full_device_lifecycle
+  request_timeouts/BeforeBothExpire
+  request_timeouts/BeforeBothExpireWithExtraTrue
+  request_timeouts/AfterMainTimeoutExpires
+  request_timeouts/AfterExtraTimeoutExpires
+  request_timeouts/WithCustomTimeout
+  request_timeouts/WithZeroExtraTimeout
+  request_timeouts/NearTimeoutBoundary
 
   DEPS ODC::odc
 

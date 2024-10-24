@@ -33,6 +33,7 @@ int main(int argc, char** argv)
 {
     try {
         size_t timeout;
+        size_t extraTimeout;
         Logger::Config logConfig;
         CliHelper::BatchOptions batchOptions;
         bool batch;
@@ -48,6 +49,7 @@ int main(int argc, char** argv)
             ("help,h", "Print help")
             ("version,v", "Print version")
             ("timeout", bpo::value<size_t>(&timeout)->default_value(30), "Timeout of requests in sec")
+            ("extra-timeout", bpo::value<size_t>(&timeout)->default_value(0), "Extra timeout for operations that follow long-running ones, to give them a better chance of completion. Subtracted from the provided total request timeout.")
             ("rp", bpo::value<std::vector<std::string>>()->multitoken(), "Register resource plugins ( name1:cmd1 name2:cmd2 )")
             ("zones", bpo::value<vector<string>>(&zonesStr)->multitoken()->composing(), "Zones in <name>:<cfgFilePath>:<envFilePath> format")
             ("rms", bpo::value<string>(&rms)->default_value("localhost"), "Resource management system to be used by DDS  (localhost/ssh/slurm)")
@@ -85,6 +87,7 @@ int main(int argc, char** argv)
 
         odc::CliController controller;
         controller.setTimeout(chrono::seconds(timeout));
+        controller.setExtraTimeout(chrono::seconds(extraTimeout));
         controller.setHistoryDir(historyDir);
         controller.setZoneCfgs(zonesStr);
         controller.setRMS(rms);
